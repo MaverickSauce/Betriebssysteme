@@ -1,0 +1,2 @@
+Ignore this file.
+It's impossible to push empty directories to github.
