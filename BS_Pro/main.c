@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "main.h"
-#include "keyValStore.h"
 
 int main() {
     // Random data to check functionality.

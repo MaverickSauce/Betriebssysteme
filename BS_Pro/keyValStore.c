@@ -12,9 +12,9 @@
     #define TEMP_FILE_PATH "..\\storage\\temp.txt"
     #define STORAGE_PATH "..\\storage\\"
 #else
-    #define DATA_FILE_PATH "../storage/data.txt"
-    #define TEMP_FILE_PATH "../storage/temp.txt"
-    #define STORAGE_PATH "../storage/"
+    #define DATA_FILE_PATH "../BS_Pro/storage/data.txt"
+    #define TEMP_FILE_PATH "../BS_Pro/storage/temp.txt"
+    #define STORAGE_PATH "../BS_Pro/storage/"
 #endif
 
 #define KEY_VALUE_FORMAT_STRING "%s => %s\n"
@@ -22,9 +22,22 @@
 #define MAX_STRING_LENGTH 200
 
 
+// Should be used in put, get and del.
+int isValidKeyOrValue(char *candidate) {
+    while (*candidate != '\0') {
+        if ((*candidate >= 48 && *candidate <= 57)          // is a number
+            || (*candidate >= 65 && *candidate <= 90)       // is an uppercase letter
+            || (*candidate >= 97 && *candidate <= 122)) {   // is a lowercase letter
+            return 1; // -> is valid
+        }
+        candidate++;
+    }
+    return 0; // -> is not valid
+}
+
 // Only needed for the first option.
 void createDataFileIfNonExistent() {
-    FILE* fp = fopen(DATA_FILE_PATH, "r");
+    FILE *fp = fopen(DATA_FILE_PATH, "r");
     if (fp == NULL) {
         fp = fopen(DATA_FILE_PATH, "w");
         fprintf(fp, KEY_VALUE_FORMAT_STRING, "*clientKey*", "*clientValue*");
@@ -34,7 +47,7 @@ void createDataFileIfNonExistent() {
 }
 
 // Only needed for the second option.
-void buildFilePath(char* destination, char* fileName) {
+void buildFilePath(char *destination, char *fileName) {
     strcat(destination, STORAGE_PATH);
     strcat(destination, fileName);
     strcat(destination, FILE_FORMAT);
@@ -46,19 +59,19 @@ void buildFilePath(char* destination, char* fileName) {
  * Actually overwriting whole lines without a temp file is more complicated.
  * https://www.quora.com/How-do-I-delete-the-first-line-of-a-text-file-without-creating-another-text-file-in-C?share=1
  */
-int put(char* clientKey, char* clientValue) {
+int put(char *clientKey, char *clientValue) {
     int valueWasOverwritten = 0;
     char currentKey[MAX_STRING_LENGTH] = "";
     char currentValue[MAX_STRING_LENGTH] = "";
 
     createDataFileIfNonExistent();
-    FILE* sourceFile = fopen(DATA_FILE_PATH, "r");
-    FILE* destinationFile = fopen(TEMP_FILE_PATH, "w");
+    FILE *sourceFile = fopen(DATA_FILE_PATH, "r");
+    FILE *destinationFile = fopen(TEMP_FILE_PATH, "w");
 
     // Copy every line to the new file and exchange currentValue for clientValue if the clientKey already exists.
     while (!feof(sourceFile)) {
         fscanf(sourceFile, KEY_VALUE_FORMAT_STRING, currentKey, currentValue);
-        if(valueWasOverwritten == 0 && strcmp(currentKey, clientKey) == 0) {
+        if (valueWasOverwritten == 0 && strcmp(currentKey, clientKey) == 0) {
             fprintf(destinationFile, KEY_VALUE_FORMAT_STRING, clientKey, clientValue);
             valueWasOverwritten = 1;
         } else {
@@ -67,7 +80,7 @@ int put(char* clientKey, char* clientValue) {
     }
 
     // Adds the key-value pair to the end of the file if the clientKey did not already exist.
-    if(valueWasOverwritten == 0) {
+    if (valueWasOverwritten == 0) {
         fprintf(destinationFile, KEY_VALUE_FORMAT_STRING, clientKey, clientValue);
     }
 
@@ -87,14 +100,14 @@ int put(char* clientKey, char* clientValue) {
  * Simpler functions for put(), get() and del().
  * Probably faster but results in a lot of files.
  */
-int putAlt(char* clientKey, char* clientValue) {
+int putAlt(char *clientKey, char *clientValue) {
     int fileWasOverwritten = 0;
-    char filePath[200] = "";
+    char filePath[MAX_STRING_LENGTH] = "";
 
     buildFilePath(filePath, clientKey);
 
     // On Unix this could be replaced with access() but unisted.h does not work on Windows.
-    FILE* targetFile = fopen(filePath, "r");
+    FILE *targetFile = fopen(filePath, "r");
     if (targetFile != NULL) {
         fclose(targetFile);
         fileWasOverwritten = 1;
@@ -108,10 +121,10 @@ int putAlt(char* clientKey, char* clientValue) {
     return fileWasOverwritten;
 }
 
-int get(char* key, char* res) {
+int get(char *key, char *res) {
     return 0;
 }
 
-int del(char* value) {
+int del(char *value) {
     return 0;
 }
