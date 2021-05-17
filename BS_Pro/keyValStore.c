@@ -25,14 +25,14 @@
 // Should be used in put, get and del.
 int isValidKeyOrValue(char *candidate) {
     while (*candidate != '\0') {
-        if ((*candidate >= 48 && *candidate <= 57)          // is a number
-            || (*candidate >= 65 && *candidate <= 90)       // is an uppercase letter
-            || (*candidate >= 97 && *candidate <= 122)) {   // is a lowercase letter
-            return 1; // -> is valid
+        if (!(*candidate >= 48 && *candidate <= 57)          // is not a number
+            && !(*candidate >= 65 && *candidate <= 90)       // and is not an uppercase letter
+            && !(*candidate >= 97 && *candidate <= 122)) {   // and is not a lowercase letter
+            return 0; // -> is not valid
         }
         candidate++;
     }
-    return 0; // -> is not valid
+    return 1; // -> is valid
 }
 
 // Only needed for the first option.

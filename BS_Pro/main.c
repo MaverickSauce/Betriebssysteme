@@ -16,6 +16,9 @@ int main() {
     char testRes1[200];
     char testRes2[200];
 
+    char* validKey = "ThisShouldBeAV4l1dK3y";
+    char* invalidKey = "Hello World amk /*]";
+
 
     // Proper unittests would be better. Need get() to actually work.
     // -> Change every put to putAlt to see the difference.
@@ -49,6 +52,11 @@ int main() {
 
     // del-tests etc.
     printf("result of del(%s) = %i\n", testKey0, del(testKey0));
+    printf("\n");
+
+    // isValidKeyOrValue-test
+    printf("%s is valid: %i\n", validKey, isValidKeyOrValue(validKey));
+    printf("%s is valid: %i\n", invalidKey, isValidKeyOrValue(invalidKey));
 
     return 0;
 }
