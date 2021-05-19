@@ -127,18 +127,17 @@ int get(char *key, char *res) {
     size_t len = 0;
     ssize_t read;
 
-    buildFilePath(filePath, clientKey);
+    buildFilePath(filePath, key);
 
     FILE *targetFile = fopen(filePath, "r");
-
-    fgets(res, MAX_STRING_LENGTH, (FILE *) fp);
-    fclose(targetFile);
-
-    if (res[0] != NULL){
-        return 0
-    }else{
-        return -2
+    if(targetFile){
+        fgets(res, MAX_STRING_LENGTH, (FILE *) targetFile);
+        fclose(targetFile);
+        return 0;
+    } else {
+        return -2;
     }
+
 }
 
 int del(char *value) {
