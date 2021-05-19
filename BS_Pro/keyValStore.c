@@ -122,7 +122,23 @@ int putAlt(char *clientKey, char *clientValue) {
 }
 
 int get(char *key, char *res) {
-    return 0;
+    char filePath[MAX_STRING_LENGTH] = "";
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    buildFilePath(filePath, clientKey);
+
+    FILE *targetFile = fopen(filePath, "r");
+
+    fgets(res, MAX_STRING_LENGTH, (FILE *) fp);
+    fclose(targetFile);
+
+    if (res[0] != NULL){
+        return 0
+    }else{
+        return -2
+    }
 }
 
 int del(char *value) {
