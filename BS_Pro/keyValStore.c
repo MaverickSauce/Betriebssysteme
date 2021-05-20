@@ -74,11 +74,14 @@ int get(char *key, char *res) {
 
 int del(char *key) {
     char filePath[MAX_STRING_LENGTH] = "";
+    buildFilePath(filePath, key);
+
     FILE* fp;
-    fp = fopen(key, "r");
-    if (fp == NULL) return -1;
-    else {
+    fp = fopen(filePath, "r");
+    if (fp == NULL) {
+        return -2;      // -2 -> key not found
+    } else {
         fclose(fp);
-        return remove("1337abc42.txt");
-    }
+        return remove(filePath); // -1 -> an error occured
+    }                            // 0 -> key-value pair was deleted succesfully
 }
