@@ -72,6 +72,13 @@ int get(char *key, char *res) {
     }
 }
 
-int del(char *value) {
-    return 0;
+int del(char *key) {
+    char filePath[MAX_STRING_LENGTH] = "";
+    FILE* fp;
+    fp = fopen(key, "r");
+    if (fp == NULL) return -1;
+    else {
+        fclose(fp);
+        return remove("1337abc42.txt");
+    }
 }
