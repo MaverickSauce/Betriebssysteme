@@ -31,9 +31,9 @@ int main() {
     printf("\n");
 
     // get() of non-existing key-value.
-    printf("testRes0 = %s\n", testRes0);
+    printf("testRes1 = %s\n", testRes1);
     printf("result of get(%s, testRes1): %i\n", testKey1, put(testKey1, testRes1));
-    printf("testRes0 = %s\n", testRes0);
+    printf("testRes1 = %s\n", testRes1);
     printf("\n");
 
     // Updates existing key-value.
