@@ -64,7 +64,6 @@ int main() {
                 memset(messageFromClient, 0, sizeof(messageFromClient));
 
                 // waiting for a message from client
-                write(new_sock, "> ", 2);
                 read(new_sock, messageFromClient, MAX_MESSAGE_LENGTH);    // @MaverickSauce: input will be in messageFromClient
                 //-> put the input validation around here
 
@@ -73,7 +72,7 @@ int main() {
                 puts(messageFromClient);
 
                 // building the response
-                strcpy(messageFromServer, "Your command was: ");
+                strcpy(messageFromServer, "> Your command was: ");
                 strcat(messageFromServer, messageFromClient);
 
                 // sending the response
@@ -84,7 +83,7 @@ int main() {
                 // This comparison is a bit dirty but it should not be a problem when dealing with tokens.
                 if (strncmp("QUIT", messageFromClient, 4) == 0)  {
                     memset(messageFromServer, 0, strlen(messageFromServer)); // fill up the String with zeroes to effectively empty it.
-                    strcpy(messageFromServer, "bye bye\n");
+                    strcpy(messageFromServer, "> bye bye\n");
                     write(new_sock, messageFromServer, strlen(messageFromServer));
                     break;
                 }
