@@ -1,0 +1,9 @@
+
+#ifndef BETRIEBSSYSTEME_TESTPRINTS_H
+#define BETRIEBSSYSTEME_TESTPRINTS_H
+
+#endif //BETRIEBSSYSTEME_TESTPRINTS_H
+
+
+
+int someTestPrintsForPutGetDel();

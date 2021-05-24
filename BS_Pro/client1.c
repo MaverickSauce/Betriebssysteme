@@ -1,7 +1,4 @@
-//
-// Created by fatma on 08.05.2021.
-//
-#include "server1.h"
+
 #include<sys/socket.h>
 #include<stdio.h>
 #include <arpa/inet.h>
