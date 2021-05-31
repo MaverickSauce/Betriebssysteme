@@ -5,7 +5,7 @@
 
 #define STORAGE_PATH "../BS_Pro/storage/"
 #define FILE_FORMAT ".txt"
-#define MAX_STRING_LENGTH 200
+
 
 
 // Should be used in put, get and del.
@@ -85,3 +85,8 @@ int del(char *key) {
         return remove(filePath); // -1 -> an error occured
     }                            // 0 -> key-value pair was deleted succesfully
 }
+
+UserInput stringToUserInput(char* rawString) { return NULL; }
+
+int isValidUserInput(UserInput userInput) { return 0; }
+
