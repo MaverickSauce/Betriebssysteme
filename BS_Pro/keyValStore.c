@@ -86,9 +86,15 @@ int del(char *key) {
     }                            // 0 -> key-value pair was deleted succesfully
 }
 
-// UserInput stringToUserInput(char* rawString) { return NULL; }
+UserInput stringToUserInput(char* rawString) {
+    UserInput userInput;
+
+    return userInput;
+}
 
 // 0: is not valid
 // 1: is valid
-// int isValidUserInput(UserInput userInput) { return 0; }
+int isValidUserInput(UserInput userInput) {
+    return 1;
+}
 

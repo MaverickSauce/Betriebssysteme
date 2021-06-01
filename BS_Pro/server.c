@@ -2,10 +2,11 @@
 #define MAX_MESSAGE_LENGTH 256
 
 int main() {
-    int sock, new_sock, pid, clientLength, numOfConnections;
+    int sock, new_sock, pid, clientLength;
     const int serverPort = 5678;
     char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
     struct sockaddr_in server, client;
+    UserInput userInput;
 
     // create socket for IPv4 address, TCP-protocol, IP-protocol
     sock = socket(AF_INET,SOCK_STREAM,0);
@@ -27,71 +28,64 @@ int main() {
     }
     printf("Bound socket to port %i.\n", serverPort);
 
-    // listen to socket with a maximum of 100 connections
-    listen(sock,100);
+    // listen to socket with a maximum of 10.000 simultaneous connections
+    listen(sock,10000);
     puts("Now listening on socket.");
 
     // accept connection
     clientLength = sizeof(client);
 
-    for (numOfConnections=0; numOfConnections<100; numOfConnections++) {
+    while(1) {
         new_sock = accept(sock, (struct sockaddr *) &client, (socklen_t*) &clientLength);
         pid = fork();
         if (pid < 0) {
             puts("An error occurred while forking.");
             exit(1);
         } else if (pid > 0) {
-            close(new_sock); // why?
+            close(new_sock);
         } else {
             if (new_sock == -1) {
-                printf("Client %i failed to connect to the server.\n", numOfConnections);
+                puts("A client failed to connect to the server.\n");
                 exit(1);
             }
-            printf("\nClient %i has connected to the server.\n", numOfConnections);
+            printf("\nNew client has connected to the server.\n");
 
-            // answer client with a simple string
-            memset(messageFromServer, '\0', sizeof(messageFromServer)); // fill up the String with zeroes to effectively empty it.
-            strcpy(messageFromServer, "Welcome, please enter your commands. Enter QUIT to close the connection.\n");
+            // answer client with a welcome message
+            memset(messageFromServer, '\0', sizeof(messageFromServer));
+            strcpy(messageFromServer, "Hello there...\n");
             write(new_sock, messageFromServer, strlen(messageFromServer));
-            printf("Sent a message to client %i:\n", numOfConnections);
-            puts(messageFromServer);
+            printf("Sent a welcome message to client.\n");
 
-            // This loop will echo every input of the client until receiving "QUIT".
-            // Everything below the first read() will be deleted later.
+            // This loop will receive messages of the client until "QUIT".
             while(1) {
-                // fill up the messages with zeroes to reuse them
-                memset(messageFromServer, '\0', sizeof(messageFromServer));
-                memset(messageFromClient, '\0', sizeof(messageFromClient));
 
-                // waiting for a message from client
-                read(new_sock, messageFromClient, MAX_MESSAGE_LENGTH);    // @MaverickSauce: input will be in messageFromClient
-                //-> put the input validation around here
+                // receive message, parse to UserInput and validate it
+                memset(messageFromClient, '\0', sizeof(messageFromClient));          // fill up with zeroes to "empty" the String
+                read(new_sock, messageFromClient, MAX_MESSAGE_LENGTH);                  // read new message from socket
+                userInput = stringToUserInput(messageFromClient);                       // parse message to UserInput
+                if (!isValidUserInput(userInput)) {                                     // check if input is not valid
+                    memset(messageFromServer, '\0', sizeof(messageFromServer));      // fill up with zeroes to "empty" the String
+                    strcpy(messageFromServer, "> invalid_input\n");                 // copy new message to the String
+                    write(new_sock, messageFromServer, strlen(messageFromServer));      // send new message to the client
+                    continue;                                                           // start at the beginning of the loop
+                }
 
-                // printing the client-message
-                printf("Client %i sent a message:\n", numOfConnections);
-                puts(messageFromClient);
+                // start of marius' part: userInput is valid
 
-                // building the response
-                strcpy(messageFromServer, "> Your command was: ");
-                strcat(messageFromServer, messageFromClient);
-
-                // sending the response
-                write(new_sock, messageFromServer, strlen(messageFromServer));
-                printf("Sent a message to client %i:\n", numOfConnections);
-                puts(messageFromServer);
-
-                // This comparison is a bit dirty but it should not be a problem when dealing with tokens.
+                // Feel free to change this part.
                 if (strncmp("QUIT", messageFromClient, 4) == 0)  {
-                    memset(messageFromServer, '\0', sizeof(messageFromServer)); // fill up the String with zeroes to effectively empty it.
+                    memset(messageFromServer, '\0', sizeof(messageFromServer));
                     strcpy(messageFromServer, "> bye bye\n");
                     write(new_sock, messageFromServer, strlen(messageFromServer));
                     break;
                 }
+
+                // end of marius' part
             }
 
             close(new_sock);
-            printf("Closed connection to client %i.\n\n", numOfConnections);
-            exit(0);
+            printf("Closed connection to a client.\n\n");
+            exit(0);    // terminate the child process
         }
     }
 
