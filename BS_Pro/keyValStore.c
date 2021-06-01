@@ -7,26 +7,7 @@
 #define FILE_FORMAT ".txt"
 
 
-int isValidKeyOrValue(char *candidate) {
-    while (*candidate != '\0') {
-        if (!(*candidate >= 48 && *candidate <= 57)          // is not a number
-            && !(*candidate >= 65 && *candidate <= 90)       // and is not an uppercase letter
-            && !(*candidate >= 97 && *candidate <= 122)) {   // and is not a lowercase letter
-            return 0;                                        // -> is not valid
-        }
-        candidate++;
-    }
-    return 1;  // -> is valid
-}
-
-int isValidSystemOperation(char *candidate) {
-    if (strcmp(candidate, "date") != 0
-        && strcmp(candidate, "uptime") != 0
-        && strcmp(candidate, "Who") != 0) {
-        return 0; // not valid
-    }
-    return 1; // -> is valid
-}
+// access and modify stored data
 
 void buildFilePath(char *destination, char *fileName) {
     strcat(destination, STORAGE_PATH);
@@ -83,12 +64,35 @@ int del(char *key) {
     }                            // 0 -> key-value pair was deleted succesfully
 }
 
+
+// parsing and validation of input
+
+int isValidKeyOrValue(char *candidate) {
+    while (*candidate != '\0') {
+        if (!(*candidate >= 48 && *candidate <= 57)          // is not a number
+            && !(*candidate >= 65 && *candidate <= 90)       // and is not an uppercase letter
+            && !(*candidate >= 97 && *candidate <= 122)) {   // and is not a lowercase letter
+            return 0;                                        // -> is not valid
+        }
+        candidate++;
+    }
+    return 1;  // -> is valid
+}
+
+int isValidSystemOperation(char *candidate) {
+    if (strcmp(candidate, "date") != 0
+        && strcmp(candidate, "uptime") != 0
+        && strcmp(candidate, "Who") != 0) {
+        return 0; // not valid
+    }
+    return 1; // -> is valid
+}
+
 UserInput stringToUserInput(char* rawString) {
     UserInput userInput;
 
     return userInput;
 }
-
 
 /*  1 -> valid
  * -1 -> invalid command
