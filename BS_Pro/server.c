@@ -50,7 +50,7 @@ int main() {
             printf("\nClient %i has connected to the server.\n", numOfConnections);
 
             // answer client with a simple string
-            memset(messageFromServer, 0, sizeof(messageFromServer)); // fill up the String with zeroes to effectively empty it.
+            memset(messageFromServer, '\0', sizeof(messageFromServer)); // fill up the String with zeroes to effectively empty it.
             strcpy(messageFromServer, "Welcome, please enter your commands. Enter QUIT to close the connection.\n");
             write(new_sock, messageFromServer, strlen(messageFromServer));
             printf("Sent a message to client %i:\n", numOfConnections);
@@ -60,8 +60,8 @@ int main() {
             // Everything below the first read() will be deleted later.
             while(1) {
                 // fill up the messages with zeroes to reuse them
-                memset(messageFromServer, 0, sizeof(messageFromServer));
-                memset(messageFromClient, 0, sizeof(messageFromClient));
+                memset(messageFromServer, '\0', sizeof(messageFromServer));
+                memset(messageFromClient, '\0', sizeof(messageFromClient));
 
                 // waiting for a message from client
                 read(new_sock, messageFromClient, MAX_MESSAGE_LENGTH);    // @MaverickSauce: input will be in messageFromClient
@@ -82,7 +82,7 @@ int main() {
 
                 // This comparison is a bit dirty but it should not be a problem when dealing with tokens.
                 if (strncmp("QUIT", messageFromClient, 4) == 0)  {
-                    memset(messageFromServer, 0, strlen(messageFromServer)); // fill up the String with zeroes to effectively empty it.
+                    memset(messageFromServer, '\0', sizeof(messageFromServer)); // fill up the String with zeroes to effectively empty it.
                     strcpy(messageFromServer, "> bye bye\n");
                     write(new_sock, messageFromServer, strlen(messageFromServer));
                     break;
@@ -91,6 +91,7 @@ int main() {
 
             close(new_sock);
             printf("Closed connection to client %i.\n\n", numOfConnections);
+            exit(0);
         }
     }
 
