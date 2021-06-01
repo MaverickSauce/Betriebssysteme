@@ -7,32 +7,33 @@
 #define FILE_FORMAT ".txt"
 
 
-
-// Should be used in put, get and del.
 int isValidKeyOrValue(char *candidate) {
     while (*candidate != '\0') {
         if (!(*candidate >= 48 && *candidate <= 57)          // is not a number
             && !(*candidate >= 65 && *candidate <= 90)       // and is not an uppercase letter
             && !(*candidate >= 97 && *candidate <= 122)) {   // and is not a lowercase letter
-            return 0; // -> is not validS
+            return 0;                                        // -> is not valid
         }
         candidate++;
+    }
+    return 1;  // -> is valid
+}
+
+int isValidSystemOperation(char *candidate) {
+    if (strcmp(candidate, "date") != 0
+        && strcmp(candidate, "uptime") != 0
+        && strcmp(candidate, "Who") != 0) {
+        return 0; // not valid
     }
     return 1; // -> is valid
 }
 
-// Only needed for the second option.
 void buildFilePath(char *destination, char *fileName) {
     strcat(destination, STORAGE_PATH);
     strcat(destination, fileName);
     strcat(destination, FILE_FORMAT);
 }
 
-/*
- * One file per key.
- * Simpler functions for put(), get() and del().
- * Probably faster but results in a lot of files.
- */
 int put(char *clientKey, char *clientValue) {
     int fileWasOverwritten = 0;
     char filePath[MAX_STRING_LENGTH] = "";
@@ -56,10 +57,6 @@ int put(char *clientKey, char *clientValue) {
 
 int get(char *key, char *res) {
     char filePath[MAX_STRING_LENGTH] = "";
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t read;
-
     buildFilePath(filePath, key);
 
     FILE *targetFile = fopen(filePath, "r");
@@ -95,7 +92,7 @@ UserInput stringToUserInput(char* rawString) {
 
 /*  1 -> valid
  * -1 -> invalid command
- * -2 -> invalid key or value
+ * -2 -> invalid arguments
  * -3 -> too many arguments
  */
 int isValidUserInput(UserInput userInput) {
@@ -124,6 +121,16 @@ int isValidUserInput(UserInput userInput) {
             return 1; // valid
         } else {
             return -3; // too many arguments
+        }
+    } else if (strcmp(userInput.command, "OP") == 0) {
+        if (isValidKeyOrValue(userInput.key)) {
+            if (isValidSystemOperation(userInput.value)) {
+                return 1; // valid
+            } else {
+                return -2; // invalid system operation
+            }
+        } else {
+            return -2; // invalid key
         }
     } else {
         return -1; // invalid command
