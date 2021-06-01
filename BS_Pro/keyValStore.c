@@ -92,9 +92,40 @@ UserInput stringToUserInput(char* rawString) {
     return userInput;
 }
 
-// 0: is not valid
-// 1: is valid
-int isValidUserInput(UserInput userInput) {
-    return 1;
-}
 
+/*  1 -> valid
+ * -1 -> invalid command
+ * -2 -> invalid key or value
+ * -3 -> too many arguments
+ */
+int isValidUserInput(UserInput userInput) {
+    if (strcmp(userInput.command, "PUT") == 0) {
+        if (isValidKeyOrValue(userInput.key) && (isValidKeyOrValue(userInput.value))) {
+            return 1; // valid
+        } else {
+            return -2; // invalid key or value
+        }
+    } else if (strcmp(userInput.command, "GET") == 0
+                || strcmp(userInput.command, "DEL") == 0
+                || strcmp(userInput.command, "SUB") == 0) {
+        if (isValidKeyOrValue(userInput.key)) {
+            if (strcmp(userInput.value, "") == 0) {
+                return 1; // valid
+            } else {
+                return -3; // too many arguments
+            }
+        } else {
+            return -2; // invalid key
+        }
+    } else if (strcmp(userInput.command, "QUIT") == 0
+               || strcmp(userInput.command, "BEG") == 0
+               || strcmp(userInput.command, "END") == 0) {
+        if (strcmp(userInput.key, "") == 0 || strcmp(userInput.value, "") == 0) {
+            return 1; // valid
+        } else {
+            return -3; // too many arguments
+        }
+    } else {
+        return -1; // invalid command
+    }
+}
