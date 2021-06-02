@@ -1,6 +1,8 @@
 #include "server.h"
+#include <semaphore.h>
 #define MAX_MESSAGE_LENGTH 256
 
+sem_t sem; //name of semaphore
 int main() {
     int sock, new_sock, pid, clientLength;
     const int serverPort = 5678;
