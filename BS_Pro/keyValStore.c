@@ -88,9 +88,29 @@ int isValidSystemOperation(char *candidate) {
     return 1; // -> is valid
 }
 
-UserInput stringToUserInput(char* rawString) {
+UserInput stringToUserInput(char *rawString) {
     UserInput userInput;
+    char str[MAX_STRING_LENGTH];
+    int i = 0;
+    char *seperator = " ";
+    strcpy(str, rawString);
+    char *token;
 
+    token = strtok(str, seperator);      // Set the first token
+
+    while (token != NULL) {             // Copy into userInput and walk through the remaining tokens
+        if (i == 0) {
+            strcpy(userInput.command, token);
+            i++;
+        } else if (i == 1) {
+            strcpy(userInput.key, token);
+            i++;
+        } else {
+            strcpy(userInput.value, token);
+            break;
+        }
+        token = strtok(NULL, seperator);
+    }
     return userInput;
 }
 
