@@ -83,6 +83,24 @@ int main() {
                 }
 
                 // end of marius' part
+
+                //emre's Part                                                                                           //discuss critical areas before continuing
+                /*
+                 if (strncmp("BEG", messageFromClient, 4) == 0)  {
+                    sem_wait(&sem);
+                    memset(messageFromServer, '\0', sizeof(messageFromServer));
+                    strcpy(messageFromServer, "> entering exclusive mode\n");
+                    write(new_sock, messageFromServer, strlen(messageFromServer));
+                  }
+
+
+                if (strncmp("END", messageFromClient, 4) == 0)  {
+                    sem_post(&sem);
+                    memset(messageFromServer, '\0', sizeof(messageFromServer));
+                    strcpy(messageFromServer, "> exiting exclusive mode\n");
+                    write(new_sock, messageFromServer, strlen(messageFromServer));
+                }
+                */
             }
 
             close(new_sock);
