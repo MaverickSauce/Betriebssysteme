@@ -3,7 +3,10 @@
 #define MAX_MESSAGE_LENGTH 256
 
 sem_t sem; //name of semaphore
+
 int main() {
+    sem_init(&sem,0,1);
+
     int sock, new_sock, pid, clientLength;
     const int serverPort = 5678;
     char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
@@ -60,7 +63,6 @@ int main() {
 
             // This loop will receive messages of the client until "QUIT".
             while(1) {
-                int resultOfOperations;
 
                 // receive message, parse to UserInput and validate it
                 memset(messageFromClient, '\0', sizeof(messageFromClient));          // fill up with zeroes to "empty" the String
@@ -73,23 +75,24 @@ int main() {
                     continue;                                                           // start at the beginning of the loop
                 }
 
+                // start of marius' part: userInput is valid
 
                 // start of marius' part: userInput is valid
                 memset(messageFromServer, '\0', sizeof(messageFromServer));         // empty response String
-                if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
-                    // enter critical area
-                    put(userInput.key, userInput.value);
-                    // leave critical area
+                if (strncmp("PUT", userInput.command, 3) == 0) { // if else ladder because switch case is not applicable
+                    sem_wait(&sem);
+                    put(userInput.key, userInput.value);  //critical area
+                    sem_post(&sem);
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
-                    // enter critical area
-                    get(userInput.key, userInput.value);
-                    // leave critical area
-                } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
-                    memset(userInput.value, '\0', sizeof(userInput.value));
-                    // enter critical area
-                    resultOfOperations = del(userInput.command);
-                    // leave critical area
-                    switch (resultOfOperations) {
+                    sem_wait(&sem);
+                    get(userInput.key, userInput.value); //critical area
+                    sem_post(&sem);
+                } else if (strncmp("DEL", userInput.command, 3) == 0) {// fill userInput.value based on function result to
+                    sem_wait(&sem);
+                    memset(userInput.value, '\0', sizeof(userInput.value)); //critical
+                    sem_post(&sem);
+
+                    switch (del(userInput.command)) {
                         case -2:
                             sprintf(userInput.value, "%s", "key_nonexistent");
                             break;
