@@ -74,13 +74,32 @@ int main() {
 
                 // start of marius' part: userInput is valid
 
-                // Feel free to change this part.
-                if (strncmp("QUIT", messageFromClient, 4) == 0)  {
-                    memset(messageFromServer, '\0', sizeof(messageFromServer));
+                // start of marius' part: userInput is valid
+                memset(messageFromServer, '\0', sizeof(messageFromServer));         // empty response String
+                if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
+                    put(userInput.key, userInput.value);
+                } else if (strncmp("GET", userInput.command, 3) == 0) {
+                    get(userInput.key, userInput.value);
+                } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
+                    memset(userInput.value, '\0', sizeof(userInput.value));
+                    switch (del(userInput.command)) {
+                        case -2:
+                            sprintf(userInput.value, "%s", "key_nonexistent");
+                            break;
+                        case -1:
+                            sprintf(userInput.value, "%s", "unexpected_error");
+                            break;
+                        default:
+                            sprintf(userInput.value, "%s", "key_deleted");
+                            break;
+                    }
+                } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
                     strcpy(messageFromServer, "> bye bye\n");
-                    write(new_sock, messageFromServer, strlen(messageFromServer));
+                    write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
                     break;
                 }
+                sprintf(messageFromServer, "> %s:%s:%s", userInput.command, userInput.key, userInput.value);
+                write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
 
                 // end of marius' part
 
