@@ -3,6 +3,12 @@ project(Betriebssysteme C)
 
 set(CMAKE_C_STANDARD 11)
 
+add_library(lib BS_Pro/server.c
+        )
+
+TARGET_LINK_LIBRARIES(lib -lpthread -lrt)
+TARGET_LINK_LIBRARIES(lib pthread)
+
 include_directories(BS_Pro)
 
 add_executable(Betriebssysteme

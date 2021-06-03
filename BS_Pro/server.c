@@ -1,9 +1,25 @@
 #include "server.h"
 #include <semaphore.h>
 #define MAX_MESSAGE_LENGTH 256
-
-sem_t sem; //name of semaphore
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <sys/types.h>
+int sem;
 int main() {
+                                                                    //nsems = number of semaphores in set
+    sem = semget(IPC_PRIVATE,1,IPC_CREAT);                  //IPC_PRIVATE = opens private key | IPC_CREAT = creates KEY
+    semctl(sem,1,SETALL,1);                             //crud on semaphore set
+    int semop(int semid,struct sembuf sem_array[],size_t n_op); //operation on semaphore set
+    /*struct sembuf {
+        unsigned short sem_num;                                 //semaphornummer in der menge
+        short sem_op;                                           //semaphoroperation
+        short sem_flg;                                          //Flags: IPC_NOWAIT,SEM_UNDO
+    };
+     */
+
+    struct sembuf semaphore_lock[1] = {0,-1,SEM_UNDO};
+    struct sembuf semaphore_unlock[1] = {0,1,SEM_UNDO};
+
     int sock, new_sock, pid, clientLength;
     const int serverPort = 5678;
     char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
@@ -78,17 +94,23 @@ int main() {
                 memset(messageFromServer, '\0', sizeof(messageFromServer));         // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
                     // enter critical area
+                    semop(sem,&semaphore_lock[0],1);
                     put(userInput.key, userInput.value);
                     // leave critical area
+                    semop(sem,&semaphore_unlock[0],1);
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
                     // enter critical area
+                    semop(sem,&semaphore_lock[0],1);
                     get(userInput.key, userInput.value);
                     // leave critical area
+                    semop(sem,&semaphore_unlock[0],1);
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
                     memset(userInput.value, '\0', sizeof(userInput.value));
                     // enter critical area
+                    semop(sem,&semaphore_lock[0],1);
                     resultOfOperations = del(userInput.key);
                     // leave critical area
+                    semop(sem,&semaphore_unlock[0],1);
                     switch (resultOfOperations) {
                         case -2:
                             sprintf(userInput.value, "%s", "key_nonexistent");
@@ -134,6 +156,5 @@ int main() {
             exit(0);    // terminate the child process
         }
     }
-
     return 0;
 }
