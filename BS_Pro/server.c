@@ -87,7 +87,7 @@ int main() {
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
                     memset(userInput.value, '\0', sizeof(userInput.value));
                     // enter critical area
-                    resultOfOperations = del(userInput.command);
+                    resultOfOperations = del(userInput.key);
                     // leave critical area
                     switch (resultOfOperations) {
                         case -2:
@@ -105,7 +105,7 @@ int main() {
                     write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
                     break;
                 }
-                sprintf(messageFromServer, "> %s:%s:%s", userInput.command, userInput.key, userInput.value);
+                sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
                 write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
 
                 // end of marius' part

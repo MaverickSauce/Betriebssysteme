@@ -88,12 +88,25 @@ int isValidSystemOperation(char *candidate) {
     return 1; // -> is valid
 }
 
+int strcpyNoNewLine(char dest[], const char source[]) {
+    int position = 0;
+    while (source[position] != '\0' && source[position] != '\r' & source[position] != '\n') {
+        dest[position] = source[position];
+        position++;
+    }
+    dest[position] = '\0';
+
+    return 0;
+}
+
 UserInput stringToUserInput(char *rawString) {
     UserInput userInput;
     char str[MAX_STRING_LENGTH];
     int i = 0;
     char *seperator = " ";
-    strcpy(str, rawString);
+    strcpyNoNewLine(str, rawString);
+    puts(str);
+
     char *token;
 
     token = strtok(str, seperator);      // Set the first token
