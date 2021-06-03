@@ -60,6 +60,7 @@ int main() {
 
             // This loop will receive messages of the client until "QUIT".
             while(1) {
+                int resultOfOperations;
 
                 // receive message, parse to UserInput and validate it
                 memset(messageFromClient, '\0', sizeof(messageFromClient));          // fill up with zeroes to "empty" the String
@@ -72,17 +73,23 @@ int main() {
                     continue;                                                           // start at the beginning of the loop
                 }
 
-                // start of marius' part: userInput is valid
 
                 // start of marius' part: userInput is valid
                 memset(messageFromServer, '\0', sizeof(messageFromServer));         // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
+                    // enter critical area
                     put(userInput.key, userInput.value);
+                    // leave critical area
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
+                    // enter critical area
                     get(userInput.key, userInput.value);
+                    // leave critical area
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
                     memset(userInput.value, '\0', sizeof(userInput.value));
-                    switch (del(userInput.command)) {
+                    // enter critical area
+                    resultOfOperations = del(userInput.command);
+                    // leave critical area
+                    switch (resultOfOperations) {
                         case -2:
                             sprintf(userInput.value, "%s", "key_nonexistent");
                             break;
