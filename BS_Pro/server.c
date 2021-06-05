@@ -6,6 +6,10 @@ sem_t sem; //name of semaphore
 int main() {
     int sock, new_sock, pid, clientLength;
     const int serverPort = 5678;
+    const char* NON_EXISTENT_TAG = "key_nonexistent";
+    const char* DELETED_TAG = "key_deleted";
+    const char* UNEXPECTED_ERROR_TAG = "unexpected_error";
+    const char* KEY_OVERWRITTEN_TAG = "key_overwritten";
     char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
     struct sockaddr_in server, client;
     UserInput userInput;
@@ -80,26 +84,32 @@ int main() {
                 memset(messageFromServer, '\0', sizeof(messageFromServer));         // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
                     // enter critical area
-                    put(userInput.key, userInput.value);
+                    operationResult.code = put(userInput.key, userInput.value);
+                    if(operationResult.code == 1){
+                        strcat(userInput.value, KEY_OVERWRITTEN_TAG);
+                    }
                     // leave critical area
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
                     // enter critical area
-                    get(userInput.key, userInput.value);
+                    operationResult.code = get(userInput.key, userInput.value);
+                    if (operationResult.code == -2){
+                        sprintf(userInput.value, "%s", NON_EXISTENT_TAG);
+                    }
                     // leave critical area
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
                     memset(userInput.value, '\0', sizeof(userInput.value));
                     // enter critical area
-                    resultOfOperations = del(userInput.key);
+                    operationResult.code = del(userInput.key);
                     // leave critical area
-                    switch (resultOfOperations) {
+                    switch (operationResult.code) {
                         case -2:
-                            sprintf(userInput.value, "%s", "key_nonexistent");
+                            sprintf(userInput.value, "%s", NON_EXISTENT_TAG);
                             break;
                         case -1:
-                            sprintf(userInput.value, "%s", "unexpected_error");
+                            sprintf(userInput.value, "%s", UNEXPECTED_ERROR_TAG);
                             break;
                         default:
-                            sprintf(userInput.value, "%s", "key_deleted");
+                            sprintf(userInput.value, "%s", DELETED_TAG);
                             break;
                     }
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
