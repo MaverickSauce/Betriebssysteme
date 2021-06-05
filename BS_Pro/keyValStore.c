@@ -21,7 +21,6 @@ int put(char *clientKey, char *clientValue) {
 
     buildFilePath(filePath, clientKey);
 
-    // On Unix this could be replaced with access() but unisted.h does not work on Windows.
     FILE *targetFile = fopen(filePath, "r");
     if (targetFile != NULL) {
         fclose(targetFile);
@@ -88,26 +87,29 @@ int isValidSystemOperation(char *candidate) {
     return 1; // -> is valid
 }
 
-int strcpyNoNewLine(char dest[], const char source[]) {
+void strcpyNoNewLine(char dest[], const char source[]) {
     int position = 0;
     while (source[position] != '\0' && source[position] != '\r' & source[position] != '\n') {
         dest[position] = source[position];
         position++;
     }
     dest[position] = '\0';
-
-    return 0;
 }
 
 UserInput stringToUserInput(char *rawString) {
     UserInput userInput;
+
+    // initialize userInput with empty strings
+    memset(userInput.command, '\0', sizeof(userInput.command));
+    memset(userInput.key, '\0', sizeof(userInput.key));
+    memset(userInput.value, '\0', sizeof(userInput.value));
+
     char str[MAX_STRING_LENGTH];
     int i = 0;
     char *seperator = " ";
-    strcpyNoNewLine(str, rawString);
-    puts(str);
-
     char *token;
+
+    strcpyNoNewLine(str, rawString);
 
     token = strtok(str, seperator);      // Set the first token
 
@@ -127,49 +129,69 @@ UserInput stringToUserInput(char *rawString) {
     return userInput;
 }
 
-/*  1 -> valid
- * -1 -> invalid command
- * -2 -> invalid arguments
- * -3 -> too many arguments
- */
-int isValidUserInput(UserInput userInput) {
+OperationResult validateUserInput(UserInput userInput) {
+    OperationResult result;
+
+    // validate userInput and fill in code
     if (strcmp(userInput.command, "PUT") == 0) {
         if (isValidKeyOrValue(userInput.key) && (isValidKeyOrValue(userInput.value))) {
-            return 1; // valid
+            result.code = 1; // valid
         } else {
-            return -2; // invalid key or value
+            result.code = -2; // invalid key or value
         }
     } else if (strcmp(userInput.command, "GET") == 0
                 || strcmp(userInput.command, "DEL") == 0
                 || strcmp(userInput.command, "SUB") == 0) {
         if (isValidKeyOrValue(userInput.key)) {
             if (strcmp(userInput.value, "") == 0) {
-                return 1; // valid
+                result.code = 1; // valid
             } else {
-                return -3; // too many arguments
+                result.code = -3; // too many arguments
             }
         } else {
-            return -2; // invalid key
+            result.code = -2; // invalid key
         }
     } else if (strcmp(userInput.command, "QUIT") == 0
                || strcmp(userInput.command, "BEG") == 0
                || strcmp(userInput.command, "END") == 0) {
         if (strcmp(userInput.key, "") == 0 || strcmp(userInput.value, "") == 0) {
-            return 1; // valid
+            result.code = 1; // valid
         } else {
-            return -3; // too many arguments
+            result.code = -3; // too many arguments
         }
     } else if (strcmp(userInput.command, "OP") == 0) {
         if (isValidKeyOrValue(userInput.key)) {
             if (isValidSystemOperation(userInput.value)) {
-                return 1; // valid
+                result.code = 1; // valid
             } else {
-                return -2; // invalid system operation
+                result.code = -2; // invalid system operation
             }
         } else {
-            return -2; // invalid key
+            result.code = -2; // invalid key
         }
     } else {
-        return -1; // invalid command
+        result.code = -1; // invalid command
     }
+
+    // fill in message
+    memset(result.message, '\0', sizeof(result.message));
+    switch (result.code) {
+        case 1:
+            strcpy(result.message, "valid_input");
+            break;
+        case -1:
+            strcpy(result.message, "check_command");
+            break;
+        case -2:
+            strcpy(result.message, "check_arguments");
+            break;
+        case -3:
+            strcpy(result.message, "too_many_arguments");
+            break;
+        default:
+            strcpy(result.message, "unexpected_validation_result");
+            break;
+    }
+
+    return result;
 }
