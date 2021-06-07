@@ -73,26 +73,26 @@ int main() {
 
                 // validate user input
                 operationResult = validateUserInput(userInput);
-                if (operationResult.code != 1) {
+                if (operationResult.code != 0) {
                     memset(messageFromServer, '\0', sizeof(messageFromServer));
                     sprintf(messageFromServer, "> %s:%s\n", "invalid_input", operationResult.message);
                     write(new_sock, messageFromServer, strlen(messageFromServer));
                     continue;
                 }
 
-                // start of marius' part: userInput is valid
+                // execute command of client
                 memset(messageFromServer, '\0', sizeof(messageFromServer));         // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
                     // enter critical area
                     operationResult.code = put(userInput.key, userInput.value);
-                    if(operationResult.code == 1){
+                    if (operationResult.code == -1) {
                         strcat(userInput.value, KEY_OVERWRITTEN_TAG);
                     }
                     // leave critical area
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
                     // enter critical area
                     operationResult.code = get(userInput.key, userInput.value);
-                    if (operationResult.code == -2){
+                    if (operationResult.code == -1) {
                         sprintf(userInput.value, "%s", NON_EXISTENT_TAG);
                     }
                     // leave critical area
@@ -119,26 +119,6 @@ int main() {
                 }
                 sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
                 write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
-
-                // end of marius' part
-
-                //emre's Part                                                                                           //discuss critical areas before continuing
-                /*
-                 if (strncmp("BEG", messageFromClient, 4) == 0)  {
-                    sem_wait(&sem);
-                    memset(messageFromServer, '\0', sizeof(messageFromServer));
-                    strcpy(messageFromServer, "> entering exclusive mode\n");
-                    write(new_sock, messageFromServer, strlen(messageFromServer));
-                  }
-
-
-                if (strncmp("END", messageFromClient, 4) == 0)  {
-                    sem_post(&sem);
-                    memset(messageFromServer, '\0', sizeof(messageFromServer));
-                    strcpy(messageFromServer, "> exiting exclusive mode\n");
-                    write(new_sock, messageFromServer, strlen(messageFromServer));
-                }
-                */
             }
 
             close(new_sock);

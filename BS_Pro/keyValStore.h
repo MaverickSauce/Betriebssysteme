@@ -14,9 +14,9 @@ typedef struct {
   char message[MAX_STRING_LENGTH];
 } OperationResult;
 
-int put(char*, char*);
-int get(char*, char*);
-int del(char*);
+OperationResult put(char*, char*);
+OperationResult get(char*, char*);
+OperationResult del(char*);
 int isValidKeyOrValue(char*);
 OperationResult validateUserInput(UserInput userInput);
 UserInput stringToUserInput(char*);

@@ -15,27 +15,35 @@ void buildFilePath(char *destination, char *fileName) {
     strcat(destination, FILE_FORMAT);
 }
 
-int put(char *clientKey, char *clientValue) {
-    int fileWasOverwritten = 0;
-    char filePath[MAX_STRING_LENGTH] = "";
+OperationResult put(char *clientKey, char *clientValue) {
+    OperationResult result;
+    memset(result.message, '\0', sizeof(result.message));
 
+    char filePath[MAX_STRING_LENGTH] = "";
     buildFilePath(filePath, clientKey);
 
     FILE *targetFile = fopen(filePath, "r");
     if (targetFile != NULL) {
         fclose(targetFile);
-        fileWasOverwritten = 1;
+        result.code = -1;
+        strcpy(result.message, "key_overwritten");
+    } else {
+        result.code = 0;
+        strcpy(result.message, "new_key_added");
     }
     targetFile = fopen(filePath, "w");
     fprintf(targetFile, "%s", clientValue);
     fclose(targetFile);
 
-    // 0 -> A new file was added.
-    // 1 -> The old file was overwritten.
-    return fileWasOverwritten;
+    //  0 -> A new key was added.
+    // -1 -> The old key was overwritten.
+    return result;
 }
 
-int get(char *key, char *res) {
+OperationResult get(char *key, char *res) {
+    OperationResult result;
+    memset(result.message, '\0', sizeof(result.message));
+
     char filePath[MAX_STRING_LENGTH] = "";
     buildFilePath(filePath, key);
 
@@ -43,24 +51,43 @@ int get(char *key, char *res) {
     if(targetFile){
         fgets(res, MAX_STRING_LENGTH, (FILE *) targetFile);
         fclose(targetFile);
-        return 0;
+        result.code = 0;
+        strcpy(result.message, "key_found");
     } else {
-        return -2;
+        result.code = -1;
+        strcpy(result.message, "key_nonexistent");
     }
+
+    //  0 -> key was found
+    // -1 -> key does not exist
+    return result;
 }
 
-int del(char *key) {
+OperationResult del(char *key) {
+    OperationResult result;
+    memset(result.message, '\0', sizeof(result.message));
+
     char filePath[MAX_STRING_LENGTH] = "";
     buildFilePath(filePath, key);
 
-    FILE* fp;
-    fp = fopen(filePath, "r");
+    FILE* fp = fopen(filePath, "r");
     if (fp == NULL) {
-        return -2;      // -2 -> key not found
+        result.code = -2;
+        strcpy(result.message, "key_nonexistent");
     } else {
         fclose(fp);
-        return remove(filePath); // -1 -> an error occured
-    }                            // 0 -> key-value pair was deleted succesfully
+        result.code = remove(filePath);
+        if (result.code == -1) {
+            strcpy(result.message, "unexpected_error");
+        } else {
+            strcpy(result.message, "key_deleted");
+        }
+    }
+
+    //  0 -> key-value pair was deleted succesfully
+    // -1 -> an error occured
+    // -2 -> key not found
+    return result;
 }
 
 
@@ -131,11 +158,12 @@ UserInput stringToUserInput(char *rawString) {
 
 OperationResult validateUserInput(UserInput userInput) {
     OperationResult result;
+    memset(result.message, '\0', sizeof(result.message));
 
     // validate userInput and fill in code
     if (strcmp(userInput.command, "PUT") == 0) {
         if (isValidKeyOrValue(userInput.key) && (isValidKeyOrValue(userInput.value))) {
-            result.code = 1; // valid
+            result.code = 0; // valid
         } else {
             result.code = -2; // invalid key or value
         }
@@ -144,7 +172,7 @@ OperationResult validateUserInput(UserInput userInput) {
                 || strcmp(userInput.command, "SUB") == 0) {
         if (isValidKeyOrValue(userInput.key)) {
             if (strcmp(userInput.value, "") == 0) {
-                result.code = 1; // valid
+                result.code = 0; // valid
             } else {
                 result.code = -3; // too many arguments
             }
@@ -155,14 +183,14 @@ OperationResult validateUserInput(UserInput userInput) {
                || strcmp(userInput.command, "BEG") == 0
                || strcmp(userInput.command, "END") == 0) {
         if (strcmp(userInput.key, "") == 0 || strcmp(userInput.value, "") == 0) {
-            result.code = 1; // valid
+            result.code = 0; // valid
         } else {
             result.code = -3; // too many arguments
         }
     } else if (strcmp(userInput.command, "OP") == 0) {
         if (isValidKeyOrValue(userInput.key)) {
             if (isValidSystemOperation(userInput.value)) {
-                result.code = 1; // valid
+                result.code = 0; // valid
             } else {
                 result.code = -2; // invalid system operation
             }
@@ -174,9 +202,8 @@ OperationResult validateUserInput(UserInput userInput) {
     }
 
     // fill in message
-    memset(result.message, '\0', sizeof(result.message));
     switch (result.code) {
-        case 1:
+        case 0:
             strcpy(result.message, "valid_input");
             break;
         case -1:
