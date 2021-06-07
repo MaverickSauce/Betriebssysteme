@@ -12,7 +12,7 @@ int main() {
     int *ex;
     int shm_id;
     //setup semaphores                                              //nsems = number of semaphores in set
-    semread = semget(IPC_PRIVATE,1,IPC_CREAT);                  //IPC_PRIVATE = opens private key | IPC_CREAT = creates KEY
+    //IPC_PRIVATE = opens private key | IPC_CREAT = creates KEY
     semdelete = semget(IPC_PRIVATE,1,IPC_CREAT);
     semwrite = semget(IPC_PRIVATE,1,IPC_CREAT);
     semctl(semread,1,SETALL,1);                             //crud on semaphore set
