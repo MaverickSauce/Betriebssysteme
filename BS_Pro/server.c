@@ -85,9 +85,7 @@ int main() {
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
                     // enter critical area
                     operationResult = put(userInput.key, userInput.value);
-                    if (operationResult.code < 0) {
-                        strcat(userInput.value, operationResult.message);
-                    }
+                    strcat(userInput.value, operationResult.message);
                     // leave critical area
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
                     // enter critical area
@@ -101,9 +99,7 @@ int main() {
                     // enter critical area
                     operationResult = del(userInput.key);
                     // leave critical area
-                    if (operationResult.code < 0) {
-                        sprintf(userInput.value, "%s", operationResult.message);
-                    }
+                    sprintf(userInput.value, "%s", operationResult.message);
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
                     strcpy(messageFromServer, "> bye bye\n");
                     write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value

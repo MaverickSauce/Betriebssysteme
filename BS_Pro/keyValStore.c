@@ -26,10 +26,10 @@ OperationResult put(char *clientKey, char *clientValue) {
     if (targetFile != NULL) {
         fclose(targetFile);
         result.code = -1;
-        strcpy(result.message, "key_overwritten");
+        strcpy(result.message, ":key_overwritten");
     } else {
         result.code = 0;
-        strcpy(result.message, "new_key_added");
+        strcpy(result.message, ":new_key_added");
     }
     targetFile = fopen(filePath, "w");
     fprintf(targetFile, "%s", clientValue);
