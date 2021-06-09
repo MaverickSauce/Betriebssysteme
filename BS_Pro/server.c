@@ -43,6 +43,7 @@ int main() {
     char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
     struct sockaddr_in server, client;
     UserInput userInput;
+    OperationResult operationResult;
 
     // create socket for IPv4 address, TCP-protocol, IP-protocol
     sock = socket(AF_INET,SOCK_STREAM,0);
@@ -66,7 +67,7 @@ int main() {
 
     // listen to socket with a maximum of 10.000 simultaneous connections
     listen(sock,10000);
-    puts("Now listening on socket.");
+    puts("Now listening on socket.\n");
 
     // accept connection
     clientLength = sizeof(client);
@@ -84,11 +85,11 @@ int main() {
                 puts("A client failed to connect to the server.\n");
                 exit(1);
             }
-            printf("\nNew client has connected to the server.\n");
+            printf("New client has connected to the server.\n");
 
             // answer client with a welcome message
             memset(messageFromServer, '\0', sizeof(messageFromServer));
-            strcpy(messageFromServer, "Hello there...\n");
+            strcpy(messageFromServer, "\nWelcome to Wood's Super Duper key-value store!\n");
             write(new_sock, messageFromServer, strlen(messageFromServer));
             printf("Sent a welcome message to client.\n");
 
@@ -96,51 +97,47 @@ int main() {
             while(1) {
                 int resultOfOperations;
 
-                // receive message, parse to UserInput and validate it
+                // receive message and parse it to UserInput
                 memset(messageFromClient, '\0', sizeof(messageFromClient));          // fill up with zeroes to "empty" the String
                 read(new_sock, messageFromClient, MAX_MESSAGE_LENGTH);                  // read new message from socket
                 userInput = stringToUserInput(messageFromClient);                       // parse message to UserInput
-                if (!isValidUserInput(userInput)) {                                     // check if input is not valid
-                    memset(messageFromServer, '\0', sizeof(messageFromServer));      // fill up with zeroes to "empty" the String
-                    strcpy(messageFromServer, "> invalid_input\n");                 // copy new message to the String
-                    write(new_sock, messageFromServer, strlen(messageFromServer));      // send new message to the client
-                    continue;                                                           // start at the beginning of the loop
+
+                // validate user input
+                operationResult = validateUserInput(userInput);
+                if (operationResult.code != 0) {
+                    memset(messageFromServer, '\0', sizeof(messageFromServer));
+                    sprintf(messageFromServer, "> %s:%s\n", "invalid_input", operationResult.message);
+                    write(new_sock, messageFromServer, strlen(messageFromServer));
+                    continue;
                 }
 
-
-                // start of marius' part: userInput is valid
+                // execute command of client
                 memset(messageFromServer, '\0', sizeof(messageFromServer));       // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
                     // enter critical area
                     semop(semwrite, &semaphore_lock[0], 1);
-                    put(userInput.key, userInput.value);
-                    // leave critical area
+                    operationResult = put(userInput.key, userInput.value);
                     semop(semwrite, &semaphore_unlock[0], 1);
-                //}
+                    strcat(userInput.value, operationResult.message);
+                    // leave critical area
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
                     // enter critical area
                     semop(semwrite,&semaphore_lock[0],1);
-                    get(userInput.key, userInput.value);
-                    // leave critical area
+                    operationResult = get(userInput.key, userInput.value);
                     semop(semdelete,&semaphore_unlock[0],1);
+                    if (operationResult.code < 0) {
+                        sprintf(userInput.value, "%s", operationResult.message);
+                    }
+
+                    // leave critical area
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
                     memset(userInput.value, '\0', sizeof(userInput.value));
                     // enter critical area
                     semop(semwrite,&semaphore_lock[0],1);
-                    resultOfOperations = del(userInput.key);
-                    // leave critical area
+                    operationResult = del(userInput.key);
                     semop(semwrite,&semaphore_unlock[0],1);
-                    switch (resultOfOperations) {
-                        case -2:
-                            sprintf(userInput.value, "%s", "key_nonexistent");
-                            break;
-                        case -1:
-                            sprintf(userInput.value, "%s", "unexpected_error");
-                            break;
-                        default:
-                            sprintf(userInput.value, "%s", "key_deleted");
-                            break;
-                    }
+                    // leave critical area
+                    sprintf(userInput.value, "%s", operationResult.message);
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
                     strcpy(messageFromServer, "> bye bye\n");
                     write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
@@ -148,32 +145,13 @@ int main() {
                 }
                 sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
                 write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
-
-                // end of marius' part
-
-                //emre's Part                                                                                           //discuss critical areas before continuing
-                /*
-                 if (strncmp("BEG", messageFromClient, 4) == 0)  {
-                    semop(exclusive,&semaphore_lock[0],1);
-                    memset(messageFromServer, '\0', sizeof(messageFromServer));
-                    strcpy(messageFromServer, "> entering exclusive mode\n");
-                    write(new_sock, messageFromServer, strlen(messageFromServer));
-                  }
-
-
-                if (strncmp("END", messageFromClient, 4) == 0)  {
-                    semop(exclusive,&semaphore_unlock[0],1);
-                    memset(messageFromServer, '\0', sizeof(messageFromServer));
-                    strcpy(messageFromServer, "> exiting exclusive mode\n");
-                    write(new_sock, messageFromServer, strlen(messageFromServer));
-                }
-                */
             }
 
             close(new_sock);
-            printf("Closed connection to a client.\n\n");
+            printf("Closed connection to a client.\n");
             exit(0);    // terminate the child process
         }
     }
+
     return 0;
 }

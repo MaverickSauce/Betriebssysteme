@@ -9,11 +9,16 @@ typedef struct {
     char value[MAX_STRING_LENGTH];
 } UserInput;
 
-int put(char*, char*);
-int get(char*, char*);
-int del(char*);
+typedef struct {
+  int code;
+  char message[MAX_STRING_LENGTH];
+} OperationResult;
+
+OperationResult put(char*, char*);
+OperationResult get(char*, char*);
+OperationResult del(char*);
 int isValidKeyOrValue(char*);
-int isValidUserInput(UserInput);
+OperationResult validateUserInput(UserInput userInput);
 UserInput stringToUserInput(char*);
 
 #endif //UNTITLED_KEYVALSTORE_H

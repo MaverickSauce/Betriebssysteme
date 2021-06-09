@@ -15,28 +15,35 @@ void buildFilePath(char *destination, char *fileName) {
     strcat(destination, FILE_FORMAT);
 }
 
-int put(char *clientKey, char *clientValue) {
-    int fileWasOverwritten = 0;
-    char filePath[MAX_STRING_LENGTH] = "";
+OperationResult put(char *clientKey, char *clientValue) {
+    OperationResult result;
+    memset(result.message, '\0', sizeof(result.message));
 
+    char filePath[MAX_STRING_LENGTH] = "";
     buildFilePath(filePath, clientKey);
 
-    // On Unix this could be replaced with access() but unisted.h does not work on Windows.
     FILE *targetFile = fopen(filePath, "r");
     if (targetFile != NULL) {
         fclose(targetFile);
-        fileWasOverwritten = 1;
+        result.code = -1;
+        strcpy(result.message, ":key_overwritten");
+    } else {
+        result.code = 0;
+        strcpy(result.message, ":new_key_added");
     }
     targetFile = fopen(filePath, "w");
     fprintf(targetFile, "%s", clientValue);
     fclose(targetFile);
 
-    // 0 -> A new file was added.
-    // 1 -> The old file was overwritten.
-    return fileWasOverwritten;
+    //  0 -> A new key was added.
+    // -1 -> The old key was overwritten.
+    return result;
 }
 
-int get(char *key, char *res) {
+OperationResult get(char *key, char *res) {
+    OperationResult result;
+    memset(result.message, '\0', sizeof(result.message));
+
     char filePath[MAX_STRING_LENGTH] = "";
     buildFilePath(filePath, key);
 
@@ -44,24 +51,43 @@ int get(char *key, char *res) {
     if(targetFile){
         fgets(res, MAX_STRING_LENGTH, (FILE *) targetFile);
         fclose(targetFile);
-        return 0;
+        result.code = 0;
+        strcpy(result.message, "key_found");
     } else {
-        return -2;
+        result.code = -1;
+        strcpy(result.message, "key_nonexistent");
     }
+
+    //  0 -> key was found
+    // -1 -> key does not exist
+    return result;
 }
 
-int del(char *key) {
+OperationResult del(char *key) {
+    OperationResult result;
+    memset(result.message, '\0', sizeof(result.message));
+
     char filePath[MAX_STRING_LENGTH] = "";
     buildFilePath(filePath, key);
 
-    FILE* fp;
-    fp = fopen(filePath, "r");
+    FILE* fp = fopen(filePath, "r");
     if (fp == NULL) {
-        return -2;      // -2 -> key not found
+        result.code = -2;
+        strcpy(result.message, "key_nonexistent");
     } else {
         fclose(fp);
-        return remove(filePath); // -1 -> an error occured
-    }                            // 0 -> key-value pair was deleted succesfully
+        result.code = remove(filePath);
+        if (result.code == -1) {
+            strcpy(result.message, "unexpected_error");
+        } else {
+            strcpy(result.message, "key_deleted");
+        }
+    }
+
+    //  0 -> key-value pair was deleted succesfully
+    // -1 -> an error occured
+    // -2 -> key not found
+    return result;
 }
 
 
@@ -88,26 +114,29 @@ int isValidSystemOperation(char *candidate) {
     return 1; // -> is valid
 }
 
-int strcpyNoNewLine(char dest[], const char source[]) {
+void strcpyNoNewLine(char dest[], const char source[]) {
     int position = 0;
     while (source[position] != '\0' && source[position] != '\r' & source[position] != '\n') {
         dest[position] = source[position];
         position++;
     }
     dest[position] = '\0';
-
-    return 0;
 }
 
 UserInput stringToUserInput(char *rawString) {
     UserInput userInput;
+
+    // initialize userInput with empty strings
+    memset(userInput.command, '\0', sizeof(userInput.command));
+    memset(userInput.key, '\0', sizeof(userInput.key));
+    memset(userInput.value, '\0', sizeof(userInput.value));
+
     char str[MAX_STRING_LENGTH];
     int i = 0;
     char *seperator = " ";
-    strcpyNoNewLine(str, rawString);
-    puts(str);
-
     char *token;
+
+    strcpyNoNewLine(str, rawString);
 
     token = strtok(str, seperator);      // Set the first token
 
@@ -127,49 +156,69 @@ UserInput stringToUserInput(char *rawString) {
     return userInput;
 }
 
-/*  1 -> valid
- * -1 -> invalid command
- * -2 -> invalid arguments
- * -3 -> too many arguments
- */
-int isValidUserInput(UserInput userInput) {
+OperationResult validateUserInput(UserInput userInput) {
+    OperationResult result;
+    memset(result.message, '\0', sizeof(result.message));
+
+    // validate userInput and fill in code
     if (strcmp(userInput.command, "PUT") == 0) {
         if (isValidKeyOrValue(userInput.key) && (isValidKeyOrValue(userInput.value))) {
-            return 1; // valid
+            result.code = 0; // valid
         } else {
-            return -2; // invalid key or value
+            result.code = -2; // invalid key or value
         }
     } else if (strcmp(userInput.command, "GET") == 0
                 || strcmp(userInput.command, "DEL") == 0
                 || strcmp(userInput.command, "SUB") == 0) {
         if (isValidKeyOrValue(userInput.key)) {
             if (strcmp(userInput.value, "") == 0) {
-                return 1; // valid
+                result.code = 0; // valid
             } else {
-                return -3; // too many arguments
+                result.code = -3; // too many arguments
             }
         } else {
-            return -2; // invalid key
+            result.code = -2; // invalid key
         }
     } else if (strcmp(userInput.command, "QUIT") == 0
                || strcmp(userInput.command, "BEG") == 0
                || strcmp(userInput.command, "END") == 0) {
         if (strcmp(userInput.key, "") == 0 || strcmp(userInput.value, "") == 0) {
-            return 1; // valid
+            result.code = 0; // valid
         } else {
-            return -3; // too many arguments
+            result.code = -3; // too many arguments
         }
     } else if (strcmp(userInput.command, "OP") == 0) {
         if (isValidKeyOrValue(userInput.key)) {
             if (isValidSystemOperation(userInput.value)) {
-                return 1; // valid
+                result.code = 0; // valid
             } else {
-                return -2; // invalid system operation
+                result.code = -2; // invalid system operation
             }
         } else {
-            return -2; // invalid key
+            result.code = -2; // invalid key
         }
     } else {
-        return -1; // invalid command
+        result.code = -1; // invalid command
     }
+
+    // fill in message
+    switch (result.code) {
+        case 0:
+            strcpy(result.message, "valid_input");
+            break;
+        case -1:
+            strcpy(result.message, "check_command");
+            break;
+        case -2:
+            strcpy(result.message, "check_arguments");
+            break;
+        case -3:
+            strcpy(result.message, "too_many_arguments");
+            break;
+        default:
+            strcpy(result.message, "unexpected_validation_result");
+            break;
+    }
+
+    return result;
 }
