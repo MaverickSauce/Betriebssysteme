@@ -2,38 +2,42 @@
 #define MAX_MESSAGE_LENGTH 256
 #include <sys/ipc.h>
 #include <sys/sem.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/shm.h>
 
-int semwrite, exclusive;
+
 int main() {
-    int *ex;
-    int shm_id;
-    //setup semaphores                                              //nsems = number of semaphores in set
-    //IPC_PRIVATE = opens private key | IPC_CREAT = creates KEY
-
-    semwrite = semget(IPC_PRIVATE,1,IPC_CREAT);
-    exclusive = semget(IPC_PRIVATE,1,IPC_CREAT);
-
-    //crud on semaphore set
-    semctl(semwrite,1,SETALL,1);
-    semctl(exclusive,1,SETALL,1);
-
-    struct sembuf semaphore_lock[1] = {0,-1,SEM_UNDO};
-    struct sembuf semaphore_unlock[1] = {0,1,SEM_UNDO};
-
-    //setup shared memory
-    shm_id = shmget(IPC_PRIVATE, sizeof(int), 0644 | IPC_CREAT);
-    ex = shmat(shm_id,NULL,0);
-    *ex= 0;
-
-    int sock, new_sock, pid, clientLength;
+    int sock, new_sock, pid, clientLength, sharedReadCounterID, *sharedReadCounter;
+    int semStorage, semReadCounter, semExclusiveAccess;
+    unsigned short marker[1] = { 1 };
     const int serverPort = 5678;
     char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
+
     struct sockaddr_in server, client;
     UserInput userInput;
     OperationResult operationResult;
+
+    // create semaphores
+    semStorage = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
+    semReadCounter = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
+    semExclusiveAccess = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
+
+    // initialize semaphores with 1 (open)
+    semctl(semStorage, 1, SETALL, marker);
+    semctl(semReadCounter, 1, SETALL, marker);
+    semctl(semExclusiveAccess, 1, SETALL, marker);
+
+    struct sembuf semaphore_lock = {0, -1, SEM_UNDO};
+    struct sembuf semaphore_unlock = {0, 1, SEM_UNDO};
+
+    // setup shared memory for readerCount
+    sharedReadCounterID = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644);
+    if (sharedReadCounterID == -1) {
+        puts("Some error occurred while setting up shared memory for readerCount.");
+        exit(1);
+    }
+    sharedReadCounter = (int *)shmat(sharedReadCounterID, 0, 0);
+    *sharedReadCounter = 0;
 
     // create socket for IPv4 address, TCP-protocol, IP-protocol
     sock = socket(AF_INET,SOCK_STREAM,0);
@@ -85,7 +89,6 @@ int main() {
 
             // This loop will receive messages of the client until "QUIT".
             while(1) {
-                int resultOfOperations;
 
                 // receive message and parse it to UserInput
                 memset(messageFromClient, '\0', sizeof(messageFromClient));          // fill up with zeroes to "empty" the String
@@ -104,29 +107,44 @@ int main() {
                 // execute command of client
                 memset(messageFromServer, '\0', sizeof(messageFromServer));       // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
-                    // enter critical area
-                    semop(semwrite, &semaphore_lock[0], 1);
+
+                    semop(semStorage, &semaphore_lock, 1);                  // enter critical area: storage
                     operationResult = put(userInput.key, userInput.value);
-                    semop(semwrite, &semaphore_unlock[0], 1);
+                    semop(semStorage, &semaphore_unlock, 1);                // leave critical area: storage
+
                     strcat(userInput.value, operationResult.message);
-                    // leave critical area
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
-                    // enter critical area
-                    semop(semwrite,&semaphore_lock[0],1);
+
+                    semop(semReadCounter, &semaphore_lock, 1);              // enter critical area: sharedReadCounter
+                    *sharedReadCounter = *sharedReadCounter + 1;
+                    if (*sharedReadCounter == 1) {
+                        semop(semStorage, &semaphore_lock, 1);              // enter critical area: storage
+                    }
+                    semop(semReadCounter, &semaphore_unlock, 1);            // leave critical area: sharedReadCounter
+
+
+                    sleep(15);      // only for testing
                     operationResult = get(userInput.key, userInput.value);
-                    semop(semwrite,&semaphore_unlock[0],1);
+
+
+                    semop(semReadCounter, &semaphore_lock, 1);              // enter critical area: sharedReadCounter
+                    *sharedReadCounter = *sharedReadCounter - 1;
+                    if (*sharedReadCounter == 0) {
+                        semop(semStorage, &semaphore_unlock, 1);            // leave critical area: storage
+
+                    }
+                    semop(semReadCounter, &semaphore_unlock, 1);            // leave critical area: sharedReadCounter
+
                     if (operationResult.code < 0) {
                         sprintf(userInput.value, "%s", operationResult.message);
                     }
-
-                    // leave critical area
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
                     memset(userInput.value, '\0', sizeof(userInput.value));
-                    // enter critical area
-                    semop(semwrite,&semaphore_lock[0],1);
+
+                    semop(semStorage, &semaphore_lock, 1);                  // enter critical area: storage
                     operationResult = del(userInput.key);
-                    semop(semwrite,&semaphore_unlock[0],1);
-                    // leave critical area
+                    semop(semStorage, &semaphore_unlock, 1);                // leave critical area: storage
+
                     sprintf(userInput.value, "%s", operationResult.message);
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
                     strcpy(messageFromServer, "> bye bye\n");
