@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 #include <sys/shm.h>
 
-int semread,semwrite,semdelete,exclusive;
+int semwrite, exclusive;
 int main() {
     int *ex;
     int shm_id;
@@ -20,13 +20,6 @@ int main() {
     semctl(semwrite,1,SETALL,1);
     semctl(exclusive,1,SETALL,1);
 
-    int semop(int semid,struct sembuf sem_array[],size_t n_op); //operation on semaphore set
-    /*struct sembuf {
-        unsigned short sem_num;                                 //semaphornummer in der menge
-        short sem_op;                                           //semaphoroperation
-        short sem_flg;                                          //Flags: IPC_NOWAIT,SEM_UNDO
-    };
-     */
     struct sembuf semaphore_lock[1] = {0,-1,SEM_UNDO};
     struct sembuf semaphore_unlock[1] = {0,1,SEM_UNDO};
 
@@ -34,9 +27,6 @@ int main() {
     shm_id = shmget(IPC_PRIVATE, sizeof(int), 0644 | IPC_CREAT);
     ex = shmat(shm_id,NULL,0);
     *ex= 0;
-
-
-
 
     int sock, new_sock, pid, clientLength;
     const int serverPort = 5678;
@@ -124,7 +114,7 @@ int main() {
                     // enter critical area
                     semop(semwrite,&semaphore_lock[0],1);
                     operationResult = get(userInput.key, userInput.value);
-                    semop(semdelete,&semaphore_unlock[0],1);
+                    semop(semwrite,&semaphore_unlock[0],1);
                     if (operationResult.code < 0) {
                         sprintf(userInput.value, "%s", operationResult.message);
                     }
