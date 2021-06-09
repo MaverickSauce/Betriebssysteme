@@ -1,15 +1,45 @@
 #include "server.h"
-#include <semaphore.h>
 #define MAX_MESSAGE_LENGTH 256
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/shm.h>
 
-sem_t sem; //name of semaphore
+int semread,semwrite,semdelete,exclusive;
 int main() {
+    int *ex;
+    int shm_id;
+    //setup semaphores                                              //nsems = number of semaphores in set
+    //IPC_PRIVATE = opens private key | IPC_CREAT = creates KEY
+
+    semwrite = semget(IPC_PRIVATE,1,IPC_CREAT);
+    exclusive = semget(IPC_PRIVATE,1,IPC_CREAT);
+
+    //crud on semaphore set
+    semctl(semwrite,1,SETALL,1);
+    semctl(exclusive,1,SETALL,1);
+
+    int semop(int semid,struct sembuf sem_array[],size_t n_op); //operation on semaphore set
+    /*struct sembuf {
+        unsigned short sem_num;                                 //semaphornummer in der menge
+        short sem_op;                                           //semaphoroperation
+        short sem_flg;                                          //Flags: IPC_NOWAIT,SEM_UNDO
+    };
+     */
+    struct sembuf semaphore_lock[1] = {0,-1,SEM_UNDO};
+    struct sembuf semaphore_unlock[1] = {0,1,SEM_UNDO};
+
+    //setup shared memory
+    shm_id = shmget(IPC_PRIVATE, sizeof(int), 0644 | IPC_CREAT);
+    ex = shmat(shm_id,NULL,0);
+    *ex= 0;
+
+
+
+
     int sock, new_sock, pid, clientLength;
     const int serverPort = 5678;
-    const char* NON_EXISTENT_TAG = "key_nonexistent";
-    const char* DELETED_TAG = "key_deleted";
-    const char* UNEXPECTED_ERROR_TAG = "unexpected_error";
-    const char* KEY_OVERWRITTEN_TAG = "key_overwritten";
     char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
     struct sockaddr_in server, client;
     UserInput userInput;
@@ -61,6 +91,7 @@ int main() {
             memset(messageFromServer, '\0', sizeof(messageFromServer));
             strcpy(messageFromServer, "\nWelcome to Wood's Super Duper key-value store!\n");
             write(new_sock, messageFromServer, strlen(messageFromServer));
+            printf("Sent a welcome message to client.\n");
 
             // This loop will receive messages of the client until "QUIT".
             while(1) {
@@ -81,23 +112,30 @@ int main() {
                 }
 
                 // execute command of client
-                memset(messageFromServer, '\0', sizeof(messageFromServer));         // empty response String
+                memset(messageFromServer, '\0', sizeof(messageFromServer));       // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
                     // enter critical area
+                    semop(semwrite, &semaphore_lock[0], 1);
                     operationResult = put(userInput.key, userInput.value);
+                    semop(semwrite, &semaphore_unlock[0], 1);
                     strcat(userInput.value, operationResult.message);
                     // leave critical area
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
                     // enter critical area
+                    semop(semwrite,&semaphore_lock[0],1);
                     operationResult = get(userInput.key, userInput.value);
+                    semop(semdelete,&semaphore_unlock[0],1);
                     if (operationResult.code < 0) {
                         sprintf(userInput.value, "%s", operationResult.message);
                     }
+
                     // leave critical area
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
                     memset(userInput.value, '\0', sizeof(userInput.value));
                     // enter critical area
+                    semop(semwrite,&semaphore_lock[0],1);
                     operationResult = del(userInput.key);
+                    semop(semwrite,&semaphore_unlock[0],1);
                     // leave critical area
                     sprintf(userInput.value, "%s", operationResult.message);
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
