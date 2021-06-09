@@ -84,33 +84,25 @@ int main() {
                 memset(messageFromServer, '\0', sizeof(messageFromServer));         // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
                     // enter critical area
-                    operationResult.code = put(userInput.key, userInput.value);
-                    if (operationResult.code == -1) {
-                        strcat(userInput.value, KEY_OVERWRITTEN_TAG);
+                    operationResult = put(userInput.key, userInput.value);
+                    if (operationResult.code < 0) {
+                        strcat(userInput.value, operationResult.message);
                     }
                     // leave critical area
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
                     // enter critical area
-                    operationResult.code = get(userInput.key, userInput.value);
-                    if (operationResult.code == -1) {
-                        sprintf(userInput.value, "%s", NON_EXISTENT_TAG);
+                    operationResult = get(userInput.key, userInput.value);
+                    if (operationResult.code < 0) {
+                        sprintf(userInput.value, "%s", operationResult.message);
                     }
                     // leave critical area
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
                     memset(userInput.value, '\0', sizeof(userInput.value));
                     // enter critical area
-                    operationResult.code = del(userInput.key);
+                    operationResult = del(userInput.key);
                     // leave critical area
-                    switch (operationResult.code) {
-                        case -2:
-                            sprintf(userInput.value, "%s", NON_EXISTENT_TAG);
-                            break;
-                        case -1:
-                            sprintf(userInput.value, "%s", UNEXPECTED_ERROR_TAG);
-                            break;
-                        default:
-                            sprintf(userInput.value, "%s", DELETED_TAG);
-                            break;
+                    if (operationResult.code < 0) {
+                        sprintf(userInput.value, "%s", operationResult.message);
                     }
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
                     strcpy(messageFromServer, "> bye bye\n");
