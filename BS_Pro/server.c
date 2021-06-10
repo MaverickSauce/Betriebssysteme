@@ -7,8 +7,10 @@
 
 
 int main() {
-    int sock, new_sock, pid, clientLength, sharedReadCounterID, *sharedReadCounter;
-    int semStorage, semReadCounter, semExclusiveAccess;
+    int sock, new_sock, pid, clientLength;
+    int sharedReadCounterID, *sharedReadCounter;
+    int semStorage, semReadCounter;
+    int exclusiveAccessRights = 0;
     unsigned short marker[1] = { 1 };
     const int serverPort = 5678;
     char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
@@ -20,12 +22,10 @@ int main() {
     // create semaphores
     semStorage = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
     semReadCounter = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
-    semExclusiveAccess = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
 
-    // initialize semaphores with 1 (open)
+    // initialize semaphores
     semctl(semStorage, 1, SETALL, marker);
     semctl(semReadCounter, 1, SETALL, marker);
-    semctl(semExclusiveAccess, 1, SETALL, marker);
 
     struct sembuf semaphore_lock = {0, -1, SEM_UNDO};
     struct sembuf semaphore_unlock = {0, 1, SEM_UNDO};
@@ -85,7 +85,6 @@ int main() {
             memset(messageFromServer, '\0', sizeof(messageFromServer));
             strcpy(messageFromServer, "\nWelcome to Wood's Super Duper key-value store!\n");
             write(new_sock, messageFromServer, strlen(messageFromServer));
-            printf("Sent a welcome message to client.\n");
 
             // This loop will receive messages of the client until "QUIT".
             while(1) {
@@ -108,44 +107,64 @@ int main() {
                 memset(messageFromServer, '\0', sizeof(messageFromServer));       // empty response String
                 if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
 
-                    semop(semStorage, &semaphore_lock, 1);                  // enter critical area: storage
+                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
                     operationResult = put(userInput.key, userInput.value);
-                    semop(semStorage, &semaphore_unlock, 1);                // leave critical area: storage
+                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
 
                     strcat(userInput.value, operationResult.message);
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
-
-                    semop(semReadCounter, &semaphore_lock, 1);              // enter critical area: sharedReadCounter
-                    *sharedReadCounter = *sharedReadCounter + 1;
-                    if (*sharedReadCounter == 1) {
-                        semop(semStorage, &semaphore_lock, 1);              // enter critical area: storage
+                    if (!exclusiveAccessRights) {
+                        semop(semReadCounter, &semaphore_lock,1);             // enter critical area: sharedReadCounter
+                        *sharedReadCounter = *sharedReadCounter + 1;
+                        if (*sharedReadCounter == 1) {
+                            semop(semStorage, &semaphore_lock, 1);            // enter critical area: storage
+                        }
+                        semop(semReadCounter, &semaphore_unlock,1);           // leave critical area: sharedReadCounter
                     }
-                    semop(semReadCounter, &semaphore_unlock, 1);            // leave critical area: sharedReadCounter
 
-
-                    sleep(15);      // only for testing
+                    sleep(10);      // only for testing
                     operationResult = get(userInput.key, userInput.value);
 
-
-                    semop(semReadCounter, &semaphore_lock, 1);              // enter critical area: sharedReadCounter
-                    *sharedReadCounter = *sharedReadCounter - 1;
-                    if (*sharedReadCounter == 0) {
-                        semop(semStorage, &semaphore_unlock, 1);            // leave critical area: storage
-
+                    if (!exclusiveAccessRights) {
+                        semop(semReadCounter, &semaphore_lock,1);              // enter critical area: sharedReadCounter
+                        *sharedReadCounter = *sharedReadCounter - 1;
+                        if (*sharedReadCounter == 0) {
+                            semop(semStorage, &semaphore_unlock, 1);           // leave critical area: storage
+                        }
+                        semop(semReadCounter, &semaphore_unlock,1);            // leave critical area: sharedReadCounter
                     }
-                    semop(semReadCounter, &semaphore_unlock, 1);            // leave critical area: sharedReadCounter
 
                     if (operationResult.code < 0) {
                         sprintf(userInput.value, "%s", operationResult.message);
                     }
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
-                    memset(userInput.value, '\0', sizeof(userInput.value));
 
-                    semop(semStorage, &semaphore_lock, 1);                  // enter critical area: storage
+                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
                     operationResult = del(userInput.key);
-                    semop(semStorage, &semaphore_unlock, 1);                // leave critical area: storage
+                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
 
+                    memset(userInput.value, '\0', sizeof(userInput.value));
                     sprintf(userInput.value, "%s", operationResult.message);
+                } else if (strncmp("BEG", userInput.command, 3) == 0) {
+                    if (!exclusiveAccessRights) {
+                        semop(semStorage, &semaphore_lock, 1);                  // enter exclusive access
+                        exclusiveAccessRights = 1;
+                        strcpy(messageFromServer, "> BEG:activated\n");
+                    } else {
+                        strcpy(messageFromServer, "> BEG:already_active\n");
+                    }
+                    write(new_sock, messageFromServer, strlen(messageFromServer));
+                    continue;
+                } else if (strncmp("END", userInput.command, 3) == 0) {
+                    if (exclusiveAccessRights) {
+                        exclusiveAccessRights = 0;
+                        semop(semStorage, &semaphore_unlock, 1);                // leave exclusive access
+                        strcpy(messageFromServer, "> END:deactivated\n");
+                    } else {
+                        strcpy(messageFromServer, "> END:already_not_active\n");
+                    }
+                    write(new_sock, messageFromServer, strlen(messageFromServer));
+                    continue;
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
                     strcpy(messageFromServer, "> bye bye\n");
                     write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
