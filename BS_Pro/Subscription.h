@@ -3,6 +3,7 @@
 #define UNTITLED_SUBSCRIPTION_H
 
 #include <sys/types.h>
+#include "keyValStore.h"
 
 struct subscription {
     pid_t subscriberId;
@@ -13,7 +14,7 @@ struct subscription {
 
 struct subscription *get_subscription(pid_t *, char *);
 
-void subscribe(pid_t *, char *);
+OperationResult subscribe(pid_t *, char *);
 
 void deleteClientSubscription(pid_t *);
 
