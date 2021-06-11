@@ -12,4 +12,5 @@
 #include <unistd.h>
 
 #include "keyValStore.h"
+#include "Subscription.h"
 #include "testPrints.h"
