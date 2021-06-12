@@ -11,7 +11,8 @@ struct subscription *subscription_head = NULL;
 struct subscription *get_subscription(pid_t *subscriberId, char *subscribedKey) {
     struct subscription *subscription_i = subscription_head;
     while (subscription_i != NULL) {
-        if (subscription_i->subscribedKey == subscribedKey && subscription_i->subscriberId == subscriberId)
+        if (strcmp(subscription_i->subscribedKey, subscribedKey) == 0 &&
+            (pid_t *) subscription_i->subscriberId == subscriberId)
             return subscription_i;
         subscription_i = subscription_i->next;
     }
@@ -19,15 +20,15 @@ struct subscription *get_subscription(pid_t *subscriberId, char *subscribedKey) 
 }
 
 // add subscription to the list
-OperationResult subscribe(pid_t *subscriberId, char *subscribedKey) {
+OperationResult subscribe(pid_t *subscriberId, char *subKey) {
     OperationResult result;
 
     memset(result.message, '\0', sizeof(result.message));
 
-    if (get(subscribedKey, NULL).code == -1) {
+    if (get(subKey, NULL).code == -1) {
         result.code = -2;
         strcpy(result.message, "No such Key");
-    } else if (get_subscription(subscriberId, subscribedKey) !=
+    } else if (get_subscription(subscriberId, subKey) !=
                NULL) { //prevents the same user from subscribing to the same key twice
         result.code = -1;
         strcpy(result.message, "Already subscribed");
@@ -39,8 +40,9 @@ OperationResult subscribe(pid_t *subscriberId, char *subscribedKey) {
             strcpy(result.message, "subscription unavailable");
 
         } else {
+            memset(subscription_i->subscribedKey, '\0', sizeof(subscription_i->subscribedKey));
             subscription_i->subscriberId = subscriberId;
-            subscription_i->subscribedKey = subscribedKey;
+            strcpy(subscription_i->subscribedKey, subKey);
             subscription_i->next = subscription_head;
 
             if (subscription_head != NULL)// add subscription if list is not empty
@@ -62,7 +64,7 @@ OperationResult subscribe(pid_t *subscriberId, char *subscribedKey) {
 void deleteClientSubscription(pid_t *subscriberId) {
     struct subscription *subscription_i = subscription_head;
     while (subscription_i != NULL) {
-        if (subscriberId == subscription_i->subscriberId) {
+        if ((pid_t) subscriberId == subscription_i->subscriberId) {
             if (subscription_i->next != NULL) {
                 subscription_i->next->previous = subscription_i->previous;
             }
@@ -81,7 +83,7 @@ void deleteClientSubscription(pid_t *subscriberId) {
 void deleteKeySubscription(char *subscribedKey) {
     struct subscription *subscription_i = subscription_head;
     while (subscription_i != NULL) {
-        if (subscribedKey == subscription_i->subscribedKey) {
+        if (strcmp(subscribedKey, subscription_i->subscribedKey) == 0) {
             if (subscription_i->next != NULL) {
                 subscription_i->next->previous = subscription_i->previous;
             }
@@ -100,7 +102,7 @@ void deleteKeySubscription(char *subscribedKey) {
 void publishChanges(char *subscribedKey, const char *message) {
     struct subscription *subscription_i = subscription_head;
     while (subscription_i != NULL) {
-        if (subscribedKey == subscription_i->subscribedKey) {
+        if (strcmp(subscribedKey, subscription_i->subscribedKey) == 0) {
             msgsnd(subscription_i->subscriberId, message, MAX_MESSAGE_LENGTH, 1);
             subscription_i = subscription_i->next;
         }

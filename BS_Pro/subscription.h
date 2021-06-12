@@ -7,7 +7,7 @@
 
 struct subscription {
     pid_t subscriberId;
-    char subscribedKey;
+    char subscribedKey[MAX_STRING_LENGTH];
     struct subscription *next;
     struct subscription *previous;
 };

@@ -177,7 +177,7 @@ int main() {
                     write(new_sock, messageFromServer, strlen(messageFromServer));
                     continue;
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
-                    deleteClientSubscription(getpid());
+                    deleteClientSubscription((pid_t *) getpid());
                     strcpy(messageFromServer, "> bye bye\n");
                     write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
                     break;
