@@ -12,9 +12,9 @@ struct subscription {
     struct subscription *previous;
 };
 
-OperationResult subscribe(pid_t *, char *);
+OperationResult subscribe(pid_t subscriberId, char *subKey);
 
-void deleteClientSubscription(pid_t *);
+void deleteClientSubscription(pid_t subscriberId);
 
 void deleteKeySubscription(char *);
 

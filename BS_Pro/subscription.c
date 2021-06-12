@@ -8,11 +8,11 @@
 struct subscription *subscription_head = NULL;
 
 // Returns a pointer to an already existing subscription
-struct subscription *get_subscription(pid_t *subscriberId, char *subscribedKey) {
+struct subscription *get_subscription(const pid_t subscriberId, char *subscribedKey) {
     struct subscription *subscription_i = subscription_head;
     while (subscription_i != NULL) {
         if (strcmp(subscription_i->subscribedKey, subscribedKey) == 0 &&
-            (pid_t *) subscription_i->subscriberId == subscriberId)
+           subscription_i->subscriberId == subscriberId)
             return subscription_i;
         subscription_i = subscription_i->next;
     }
@@ -20,7 +20,7 @@ struct subscription *get_subscription(pid_t *subscriberId, char *subscribedKey) 
 }
 
 // add subscription to the list
-OperationResult subscribe(pid_t *subscriberId, char *subKey) {
+OperationResult subscribe(pid_t subscriberId, char *subKey) {
     OperationResult result;
 
     memset(result.message, '\0', sizeof(result.message));
@@ -28,6 +28,7 @@ OperationResult subscribe(pid_t *subscriberId, char *subKey) {
     if (get(subKey, NULL).code == -1) {
         result.code = -2;
         strcpy(result.message, "No such Key");
+
     } else if (get_subscription(subscriberId, subKey) !=
                NULL) { //prevents the same user from subscribing to the same key twice
         result.code = -1;
@@ -61,10 +62,10 @@ OperationResult subscribe(pid_t *subscriberId, char *subKey) {
 }
 
 //remove client subscriptions after quitting
-void deleteClientSubscription(pid_t *subscriberId) {
+void deleteClientSubscription(pid_t subscriberId) {
     struct subscription *subscription_i = subscription_head;
     while (subscription_i != NULL) {
-        if ((pid_t) subscriberId == subscription_i->subscriberId) {
+        if (subscriberId == subscription_i->subscriberId) {
             if (subscription_i->next != NULL) {
                 subscription_i->next->previous = subscription_i->previous;
             }
