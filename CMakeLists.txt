@@ -18,5 +18,5 @@ add_executable(Betriebssysteme
         BS_Pro/server.h
         BS_Pro/testprints.c
         BS_Pro/testPrints.h
-        BS_Pro/Subscription.c
-        BS_Pro/Subscription.h)
+        BS_Pro/subscription.c
+        BS_Pro/subscription.h)

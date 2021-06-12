@@ -151,7 +151,7 @@ int main() {
                 } else if (strncmp("SUB", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
 
                     if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
-                    operationResult = subscribe(getpid(), userInput.key);
+                    operationResult = subscribe((pid_t *) 1, userInput.key);
                     if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
 
                     memset(userInput.value, '\0', sizeof(userInput.value));

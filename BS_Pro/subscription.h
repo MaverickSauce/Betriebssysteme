@@ -12,8 +12,6 @@ struct subscription {
     struct subscription *previous;
 };
 
-struct subscription *get_subscription(pid_t *, char *);
-
 OperationResult subscribe(pid_t *, char *);
 
 void deleteClientSubscription(pid_t *);

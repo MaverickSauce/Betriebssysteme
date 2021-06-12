@@ -1,10 +1,9 @@
 #define MAX_MESSAGE_LENGTH 256
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/msg.h>
 #include <string.h>
-#include "Subscription.h"
+#include "subscription.h"
 
 struct subscription *subscription_head = NULL;
 
@@ -22,34 +21,40 @@ struct subscription *get_subscription(pid_t *subscriberId, char *subscribedKey) 
 // add subscription to the list
 OperationResult subscribe(pid_t *subscriberId, char *subscribedKey) {
     OperationResult result;
+
     memset(result.message, '\0', sizeof(result.message));
 
-    if (get_subscription(subscriberId, subscribedKey) != NULL) { //prevents the same user from subscribing to the same key twice
+    if (get(subscribedKey, NULL).code == -1) {
+        result.code = -2;
+        strcpy(result.message, "No such Key");
+    } else if (get_subscription(subscriberId, subscribedKey) !=
+               NULL) { //prevents the same user from subscribing to the same key twice
         result.code = -1;
         strcpy(result.message, "Already subscribed");
-    }
-    struct subscription *subscription_i = NULL;
-    if ((subscription_i = calloc(1, sizeof(struct subscription))) == NULL) { //Subscription memory full
-        result.code = -2;
-        strcpy(result.message, "subscription unavailable");
-    }
 
-    subscription_i->subscriberId = subscriberId;
-    subscription_i->subscribedKey = subscribedKey;
-    subscription_i->next = subscription_head;
+    } else {
+        struct subscription *subscription_i = NULL;
+        if ((subscription_i = calloc(1, sizeof(struct subscription))) == NULL) { //Subscription memory full
+            result.code = -2;
+            strcpy(result.message, "subscription unavailable");
 
-    if (subscription_head != NULL) { // add subscription if list is not empty
-        subscription_head->previous = subscription_i;
-        result.code = 0;
-        strcpy(result.message, "subscription successful");
+        } else {
+            subscription_i->subscriberId = subscriberId;
+            subscription_i->subscribedKey = subscribedKey;
+            subscription_i->next = subscription_head;
+
+            if (subscription_head != NULL)// add subscription if list is not empty
+                subscription_head->previous = subscription_i;
+
+            subscription_head = subscription_i; // add subscription if list is empty
+            result.code = 0;
+            strcpy(result.message, "subscription successful");
+        }
     }
-    subscription_head = subscription_i; // add subscription if list is empty
-    result.code = 0;
-    strcpy(result.message, "subscription successful");
-
     //  0 -> A new key was added.
     // -1 -> Client already subscribed.
     // -2 -> Memory full
+    // -3 -> Key doesn't exist
     return result;
 }
 
