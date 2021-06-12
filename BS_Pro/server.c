@@ -112,7 +112,6 @@ int main() {
                     if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
 
                     strcat(userInput.value, operationResult.message);
-                    publishChanges(userInput.key, operationResult.message);
                 } else if (strncmp("GET", userInput.command, 3) == 0) {
                     if (!exclusiveAccessRights) {
                         semop(semReadCounter, &semaphore_lock,1);             // enter critical area: sharedReadCounter
@@ -141,17 +140,7 @@ int main() {
                 } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
 
                     if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
-                    deleteKeySubscription(userInput.key);
                     operationResult = del(userInput.key);
-                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
-
-                    memset(userInput.value, '\0', sizeof(userInput.value));
-                    sprintf(userInput.value, "%s", operationResult.message);
-                    publishChanges(userInput.key, operationResult.message);
-                } else if (strncmp("SUB", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
-
-                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
-                    operationResult = subscribe(getpid(), userInput.key);
                     if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
 
                     memset(userInput.value, '\0', sizeof(userInput.value));
@@ -177,7 +166,6 @@ int main() {
                     write(new_sock, messageFromServer, strlen(messageFromServer));
                     continue;
                 } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
-                    deleteClientSubscription(getpid());
                     strcpy(messageFromServer, "> bye bye\n");
                     write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
                     break;
