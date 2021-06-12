@@ -4,9 +4,58 @@
 #include <sys/sem.h>
 #include <sys/wait.h>
 #include <sys/shm.h>
+#include <sys/msg.h>
 
+
+#define maxsubscribers 100
+typedef struct {
+    char key;
+    int subscribers [maxsubscribers]; //array für schleifen operationen
+}Sub;
+
+#define size 10000
+Sub arr[size]; //array of subscriptions
+void addsub(char *key){
+    for(int i = 0; i < size;i++){
+        if(arr[i].key == NULL){
+            arr[i].key = key;
+        }
+    }
+}
+
+void addSubscriber(int user,const char *key){
+    for(int x = 0; x < size;x++){
+        if(*key == arr[x].key){
+            for(int i = 0; i < maxsubscribers; i++) {
+                if (arr[x].subscribers[i] == 0) {
+                    arr[x].subscribers[i] = user;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+
+
+
+void publish(int msgid,char key,char *message){
+    msgsnd(msgid,message,100,0);
+    for(int i = 0; i < size; i++){
+        if(arr[i].key == key){
+            for(int x = 0 ; x < maxsubscribers;x++){
+                if(arr[i].subscribers[x] != NULL){
+                    msgrcv(arr[i].subscribers[x],message,100,1,0);
+                }
+            }
+        }
+    }
+}
 
 int main() {
+    char message = "test";
+    int msgid;
+    msgid = msgget(IPC_PRIVATE,0600); //erzeugen einer message queue
     int sock, new_sock, pid, clientLength;
     int sharedReadCounterID, *sharedReadCounter;
     int semStorage, semReadCounter;
@@ -109,10 +158,21 @@ int main() {
 
                     if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
                     operationResult = put(userInput.key, userInput.value);
+                    addsub(userInput.key);
                     if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
 
+
                     strcat(userInput.value, operationResult.message);
-                } else if (strncmp("GET", userInput.command, 3) == 0) {
+                }
+                else if (strncmp("SUB", userInput.command, 3) == 0) {
+                    operationResult = get(userInput.key, userInput.value);
+                    if(operationResult.code != 0){                           //key sollte existieren
+                        printf("key %s does not exist", userInput.key);
+                    }
+                    else addSubscriber(pid,userInput.key);
+                        printf("sub for key %s successful", userInput.key );
+                }
+                else if (strncmp("GET", userInput.command, 3) == 0) {
                     if (!exclusiveAccessRights) {
                         semop(semReadCounter, &semaphore_lock,1);             // enter critical area: sharedReadCounter
                         *sharedReadCounter = *sharedReadCounter + 1;
