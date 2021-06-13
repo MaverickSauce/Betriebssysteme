@@ -7,8 +7,11 @@
 
 
 int main() {
-    int sock, new_sock, pid, clientLength;
+    int sock, new_sock, firstPid, clientLength;
     int sharedReadCounterID, *sharedReadCounter;
+    int sharedSubscriptionListID;
+    subscriptionList *sharedSubscriptionList;
+    char subscriptionMessage[3*MAX_STRING_LENGTH];
     int semStorage, semReadCounter;
     int exclusiveAccessRights = 0;
     unsigned short marker[1] = { 1 };
@@ -39,6 +42,18 @@ int main() {
     sharedReadCounter = (int *)shmat(sharedReadCounterID, 0, 0);
     *sharedReadCounter = 0;
 
+    // setup shared memory for subscriptionList
+    sharedSubscriptionListID = shmget(IPC_PRIVATE, sizeof(subscriptionList), IPC_CREAT | 0644);
+    if (sharedSubscriptionListID == -1) {
+        puts("Some error occurred while setting up shared memory for subscriptionList.");
+        exit(1);
+    }
+    sharedSubscriptionList = (subscriptionList *)shmat(sharedSubscriptionListID, 0, 0);
+    sharedSubscriptionList->nextFree = 0;
+
+    // initialize message queue for subscription messages
+    int messageQueue = msgget(IPC_PRIVATE, IPC_CREAT | 0777);
+
     // create socket for IPv4 address, TCP-protocol, IP-protocol
     sock = socket(AF_INET,SOCK_STREAM,0);
     if (sock == -1) {
@@ -68,11 +83,11 @@ int main() {
 
     while(1) {
         new_sock = accept(sock, (struct sockaddr *) &client, (socklen_t*) &clientLength);
-        pid = fork();
-        if (pid < 0) {
+        firstPid = fork();
+        if (firstPid < 0) {
             puts("An error occurred while forking.");
             exit(1);
-        } else if (pid > 0) {
+        } else if (firstPid > 0) {
             close(new_sock);
         } else {
             if (new_sock == -1) {
@@ -83,100 +98,133 @@ int main() {
 
             // answer client with a welcome message
             memset(messageFromServer, '\0', sizeof(messageFromServer));
-            strcpy(messageFromServer, "\nWelcome to Wood's Super Duper key-value store!\n");
+            strcpy(messageFromServer, "\n> Welcome to Wood's Super Duper key-value store!\n");
             write(new_sock, messageFromServer, strlen(messageFromServer));
 
-            // This loop will receive messages of the client until "QUIT".
-            while(1) {
+            // second fork for receiving sub-messages
+            int childPid = fork();
+            if (childPid < 0) {
+                puts("An error occured while forking.");
+                exit(1);
+            } else if (childPid > 0) {
 
-                // receive message and parse it to UserInput
-                memset(messageFromClient, '\0', sizeof(messageFromClient));          // fill up with zeroes to "empty" the String
-                read(new_sock, messageFromClient, MAX_MESSAGE_LENGTH);                  // read new message from socket
-                userInput = stringToUserInput(messageFromClient);                       // parse message to UserInput
+                // This loop will receive messages of the client until "QUIT".
+                while (1) {
 
-                // validate user input
-                operationResult = validateUserInput(userInput);
-                if (operationResult.code != 0) {
-                    memset(messageFromServer, '\0', sizeof(messageFromServer));
-                    sprintf(messageFromServer, "> %s:%s\n", "invalid_input", operationResult.message);
-                    write(new_sock, messageFromServer, strlen(messageFromServer));
-                    continue;
-                }
+                    // receive message and parse it to UserInput
+                    memset(messageFromClient, '\0', sizeof(messageFromClient));          // fill up with zeroes to "empty" the String
+                    read(new_sock, messageFromClient, MAX_MESSAGE_LENGTH);                  // read new message from socket
+                    userInput = stringToUserInput(messageFromClient);                       // parse message to UserInput
 
-                // execute command of client
-                memset(messageFromServer, '\0', sizeof(messageFromServer));       // empty response String
-                if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
-
-                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
-                    operationResult = put(userInput.key, userInput.value);
-                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
-
-                    strcat(userInput.value, operationResult.message);
-                } else if (strncmp("GET", userInput.command, 3) == 0) {
-                    if (!exclusiveAccessRights) {
-                        semop(semReadCounter, &semaphore_lock,1);             // enter critical area: sharedReadCounter
-                        *sharedReadCounter = *sharedReadCounter + 1;
-                        if (*sharedReadCounter == 1) {
-                            semop(semStorage, &semaphore_lock, 1);            // enter critical area: storage
-                        }
-                        semop(semReadCounter, &semaphore_unlock,1);           // leave critical area: sharedReadCounter
+                    // validate user input
+                    operationResult = validateUserInput(userInput);
+                    if (operationResult.code != 0) {
+                        memset(messageFromServer, '\0', sizeof(messageFromServer));
+                        sprintf(messageFromServer, "> %s:%s\n", "invalid_input", operationResult.message);
+                        write(new_sock, messageFromServer, strlen(messageFromServer));
+                        continue;
                     }
 
-                    sleep(10);      // only for testing
-                    operationResult = get(userInput.key, userInput.value);
+                    // execute command of client
+                    memset(messageFromServer, '\0', sizeof(messageFromServer));       // empty response String
+                    if (strncmp("PUT", userInput.command, 3) == 0) {                    // if else ladder because switch case is not applicable
 
-                    if (!exclusiveAccessRights) {
-                        semop(semReadCounter, &semaphore_lock,1);              // enter critical area: sharedReadCounter
-                        *sharedReadCounter = *sharedReadCounter - 1;
-                        if (*sharedReadCounter == 0) {
-                            semop(semStorage, &semaphore_unlock, 1);           // leave critical area: storage
+                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
+                        operationResult = put(userInput.key, userInput.value);
+                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
+
+                        strcat(userInput.value, operationResult.message);
+
+                        memset(subscriptionMessage, '\0', sizeof(subscriptionMessage));
+                        sprintf(subscriptionMessage, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+                        notifySubscribers(messageQueue, sharedSubscriptionList, userInput.key, subscriptionMessage);
+                    } else if (strncmp("GET", userInput.command, 3) == 0) {
+                        if (!exclusiveAccessRights) {
+                            semop(semReadCounter, &semaphore_lock,1);             // enter critical area: sharedReadCounter
+                            *sharedReadCounter = *sharedReadCounter + 1;
+                            if (*sharedReadCounter == 1) {
+                                semop(semStorage, &semaphore_lock, 1);            // enter critical area: storage
+                            }
+                            semop(semReadCounter, &semaphore_unlock,1);           // leave critical area: sharedReadCounter
                         }
-                        semop(semReadCounter, &semaphore_unlock,1);            // leave critical area: sharedReadCounter
-                    }
 
-                    if (operationResult.code < 0) {
+                        sleep(10);      // only for testing
+                        operationResult = get(userInput.key, userInput.value);
+
+                        if (!exclusiveAccessRights) {
+                            semop(semReadCounter, &semaphore_lock,1);              // enter critical area: sharedReadCounter
+                            *sharedReadCounter = *sharedReadCounter - 1;
+                            if (*sharedReadCounter == 0) {
+                                semop(semStorage, &semaphore_unlock, 1);           // leave critical area: storage
+                            }
+                            semop(semReadCounter, &semaphore_unlock,1);            // leave critical area: sharedReadCounter
+                        }
+
+                        if (operationResult.code < 0) {
+                            sprintf(userInput.value, "%s", operationResult.message);
+                        }
+                    } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
+
+                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
+                        operationResult = del(userInput.key);
+                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
+
+                        memset(userInput.value, '\0', sizeof(userInput.value));
                         sprintf(userInput.value, "%s", operationResult.message);
-                    }
-                } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
 
-                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
-                    operationResult = del(userInput.key);
-                    if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
+                        memset(subscriptionMessage, '\0', sizeof(subscriptionMessage));
+                        sprintf(subscriptionMessage, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+                        notifySubscribers(messageQueue, sharedSubscriptionList, userInput.key, subscriptionMessage);
+                    } else if (strncmp("BEG", userInput.command, 3) == 0) {
+                        if (!exclusiveAccessRights) {
+                            semop(semStorage, &semaphore_lock, 1);                  // enter exclusive access
+                            exclusiveAccessRights = 1;
+                            strcpy(messageFromServer, "> BEG:activated\n");
+                        } else {
+                            strcpy(messageFromServer, "> BEG:already_active\n");
+                        }
+                        write(new_sock, messageFromServer, strlen(messageFromServer));
+                        continue;
+                    } else if (strncmp("END", userInput.command, 3) == 0) {
+                        if (exclusiveAccessRights) {
+                            exclusiveAccessRights = 0;
+                            semop(semStorage, &semaphore_unlock, 1);                // leave exclusive access
+                            strcpy(messageFromServer, "> END:deactivated\n");
+                        } else {
+                            strcpy(messageFromServer, "> END:already_not_active\n");
+                        }
+                        write(new_sock, messageFromServer, strlen(messageFromServer));
+                        continue;
+                    } else if (strncmp("SUB", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
 
-                    memset(userInput.value, '\0', sizeof(userInput.value));
-                    sprintf(userInput.value, "%s", operationResult.message);
-                } else if (strncmp("BEG", userInput.command, 3) == 0) {
-                    if (!exclusiveAccessRights) {
-                        semop(semStorage, &semaphore_lock, 1);                  // enter exclusive access
-                        exclusiveAccessRights = 1;
-                        strcpy(messageFromServer, "> BEG:activated\n");
-                    } else {
-                        strcpy(messageFromServer, "> BEG:already_active\n");
+                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: subscriptionList
+                        operationResult = subscribe(sharedSubscriptionList, getpid(), userInput.key);
+                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: subscriptionList
+
+                        memset(userInput.value, '\0', sizeof(userInput.value));
+                        sprintf(userInput.value, "%s", operationResult.message);
+                    } else if (strncmp("QUIT", userInput.command, 4) == 0) {
+                        strcpy(messageFromServer, "> bye bye\n");
+                        write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
+                        break;
                     }
-                    write(new_sock, messageFromServer, strlen(messageFromServer));
-                    continue;
-                } else if (strncmp("END", userInput.command, 3) == 0) {
-                    if (exclusiveAccessRights) {
-                        exclusiveAccessRights = 0;
-                        semop(semStorage, &semaphore_unlock, 1);                // leave exclusive access
-                        strcpy(messageFromServer, "> END:deactivated\n");
-                    } else {
-                        strcpy(messageFromServer, "> END:already_not_active\n");
-                    }
-                    write(new_sock, messageFromServer, strlen(messageFromServer));
-                    continue;
-                } else if (strncmp("QUIT", userInput.command, 4) == 0)  {
-                    strcpy(messageFromServer, "> bye bye\n");
+                    sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
                     write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
-                    break;
                 }
-                sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
-                write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
-            }
 
-            close(new_sock);
-            printf("Closed connection to a client.\n");
-            exit(0);    // terminate the child process
+                close(new_sock);
+                printf("Closed connection to a client.\n");
+                unsubscribeFromAllKeys(sharedSubscriptionList, getpid());
+                kill(childPid, SIGKILL); // terminate the child process
+                exit(0);
+            } else {
+                while(1) {
+                    struct messageBuffer newMessage;
+                    memset(newMessage.mtext, '\0', sizeof(newMessage.mtext));
+                    msgrcv(messageQueue, &newMessage, 3*MAX_STRING_LENGTH+1 , getppid(), 0);
+                    write(new_sock, newMessage.mtext, strlen(newMessage.mtext));
+                }
+            }
         }
     }
 
