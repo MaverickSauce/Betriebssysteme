@@ -73,7 +73,7 @@ int unsubscribeFromAllKeys(subscriptionList *subscriptionList, int oldSubscriber
     return numOfRemovedSubscriptions;
 }
 
-int notifySubscribers(int messageQueueID, subscriptionList *subscriptionList, char key[MAX_STRING_LENGTH], char message[3*MAX_STRING_LENGTH]) {
+int notifySubscribers(int messageQueueID, subscriptionList *subscriptionList, char key[MAX_STRING_LENGTH], char message[MAX_MESSAGE_LENGTH]) {
     int numOfSentMessages = 0, currentPosition = 0;
 
     struct messageBuffer newMessage;

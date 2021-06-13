@@ -14,10 +14,10 @@ typedef struct {
   char message[MAX_STRING_LENGTH];
 } OperationResult;
 
+int isValidKeyOrValue(char*);
 OperationResult put(char*, char*);
 OperationResult get(char*, char*);
 OperationResult del(char*);
-int isValidKeyOrValue(char*);
 OperationResult validateUserInput(UserInput userInput);
 UserInput stringToUserInput(char*);
 

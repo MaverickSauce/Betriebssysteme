@@ -1,12 +1,14 @@
 
 #ifndef BETRIEBSSYSTEME_SUBSCRIPTION_H
 #define BETRIEBSSYSTEME_SUBSCRIPTION_H
-#include "keyValStore.h"
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+
+#include "keyValStore.h"
+#include "server.h"
 
 typedef struct {
     int subscriberPID;
@@ -20,7 +22,7 @@ typedef struct {
 
 struct messageBuffer {
     long mtype;
-    char mtext[3*MAX_STRING_LENGTH];
+    char mtext[MAX_MESSAGE_LENGTH];
 };
 
 OperationResult subscribe(subscriptionList *subscriptionList, int subscriberPID, char key[MAX_STRING_LENGTH]);

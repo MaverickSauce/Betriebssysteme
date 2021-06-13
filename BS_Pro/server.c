@@ -1,10 +1,4 @@
 #include "server.h"
-#define MAX_MESSAGE_LENGTH 256
-#include <sys/ipc.h>
-#include <sys/sem.h>
-#include <sys/wait.h>
-#include <sys/shm.h>
-
 
 int main() {
     const int serverPort = 5678;
@@ -239,7 +233,7 @@ int main() {
                 while(1) {
                     struct messageBuffer newMessage;
                     memset(newMessage.mtext, '\0', sizeof(newMessage.mtext));
-                    msgrcv(messageQueue, &newMessage, 3*MAX_STRING_LENGTH+1 , getppid(), 0);
+                    msgrcv(messageQueue, &newMessage, MAX_MESSAGE_LENGTH , getppid(), 0);
                     write(new_sock, newMessage.mtext, strlen(newMessage.mtext));
                 }
             }

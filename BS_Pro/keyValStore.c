@@ -133,12 +133,11 @@ UserInput stringToUserInput(char *rawString) {
 
     char str[MAX_STRING_LENGTH];
     int i = 0;
-    char *seperator = " ";
+    char *separator = " ";
     char *token;
 
     strcpyNoNewLine(str, rawString);
-
-    token = strtok(str, seperator);      // Set the first token
+    token = strtok(str, separator);      // Set the first token
 
     while (token != NULL) {             // Copy into userInput and walk through the remaining tokens
         if (i == 0) {
@@ -151,7 +150,7 @@ UserInput stringToUserInput(char *rawString) {
             strcpy(userInput.value, token);
             break;
         }
-        token = strtok(NULL, seperator);
+        token = strtok(NULL, separator);
     }
     return userInput;
 }
