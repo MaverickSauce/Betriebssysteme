@@ -7,19 +7,8 @@
 
 
 int main() {
-    int sock, new_sock, firstPid, clientLength;
-    int sharedReadCounterID, *sharedReadCounter;
-    int sharedSubscriptionListID;
-    subscriptionList *sharedSubscriptionList;
-    char subscriptionMessage[3*MAX_STRING_LENGTH];
-    int exclusiveAccessRights = 0;
-    unsigned short marker[1] = { 1 };
     const int serverPort = 5678;
-    char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
-
-    struct sockaddr_in server, client;
-    UserInput userInput;
-    OperationResult operationResult;
+    int exclusiveAccessRights = 0;
 
     // create semaphores
     int semStorage = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
@@ -27,6 +16,7 @@ int main() {
     int semSubscriptionList = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
 
     // initialize semaphores
+    unsigned short marker[1] = { 1 };
     semctl(semStorage, 1, SETALL, marker);
     semctl(semReadCounter, 1, SETALL, marker);
     semctl(semSubscriptionList, 1, SETALL, marker);
@@ -36,35 +26,36 @@ int main() {
     struct sembuf semaphore_unlock = {0, 1, SEM_UNDO};
 
     // setup shared memory for readerCount
-    sharedReadCounterID = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644);
+    int sharedReadCounterID = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644);
     if (sharedReadCounterID == -1) {
         puts("Some error occurred while setting up shared memory for readerCount.");
         exit(1);
     }
-    sharedReadCounter = (int *)shmat(sharedReadCounterID, 0, 0);
+    int *sharedReadCounter = (int *)shmat(sharedReadCounterID, 0, 0);
     *sharedReadCounter = 0;
 
     // setup shared memory for subscriptionList
-    sharedSubscriptionListID = shmget(IPC_PRIVATE, sizeof(subscriptionList), IPC_CREAT | 0644);
+    int sharedSubscriptionListID = shmget(IPC_PRIVATE, sizeof(subscriptionList), IPC_CREAT | 0644);
     if (sharedSubscriptionListID == -1) {
         puts("Some error occurred while setting up shared memory for subscriptionList.");
         exit(1);
     }
-    sharedSubscriptionList = (subscriptionList *)shmat(sharedSubscriptionListID, 0, 0);
+    subscriptionList *sharedSubscriptionList = (subscriptionList *)shmat(sharedSubscriptionListID, 0, 0);
     sharedSubscriptionList->nextFree = 0;
 
     // initialize message queue for subscription messages
     int messageQueue = msgget(IPC_PRIVATE, IPC_CREAT | 0777);
 
     // create socket for IPv4 address, TCP-protocol, IP-protocol
-    sock = socket(AF_INET,SOCK_STREAM,0);
+    int sock = socket(AF_INET,SOCK_STREAM,0);
     if (sock == -1) {
         puts("Failed to create a socket for the server. Please try again.");
         return -1;
     }
     puts("Created socket for the server.");
 
-    // fill sockaddr_in struct
+    // fill sockaddr_in struct for server
+    struct sockaddr_in server;
     server.sin_family = AF_INET;            // IPv4 address
     server.sin_addr.s_addr = INADDR_ANY;    // on every interface
     server.sin_port = htons(serverPort);    // on port 5678
@@ -80,12 +71,20 @@ int main() {
     listen(sock,10000);
     puts("Now listening on socket.\n");
 
-    // accept connection
-    clientLength = sizeof(client);
+    // prepare sockaddr_in for client
+    struct sockaddr_in client;
+    int clientLength = sizeof(client);
 
     while(1) {
-        new_sock = accept(sock, (struct sockaddr *) &client, (socklen_t*) &clientLength);
-        firstPid = fork();
+        char subscriptionMessage[3*MAX_STRING_LENGTH];
+        char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
+
+        UserInput userInput;
+        OperationResult operationResult;
+
+        // accept connection
+        int new_sock = accept(sock, (struct sockaddr *) &client, (socklen_t*) &clientLength);
+        int firstPid = fork();
         if (firstPid < 0) {
             puts("An error occurred while forking.");
             exit(1);
