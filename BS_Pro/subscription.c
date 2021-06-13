@@ -24,18 +24,20 @@ int getFirstSubscriptionIndexOfSubscriber(subscriptionList *subscriptionList, in
     return -1;
 }
 
-// TODO: Check if key exists before subbing... unless?
 // critical operation on subscriptionList
 OperationResult subscribe(subscriptionList *subscriptionList, int newSubscriberPID, char key[MAX_STRING_LENGTH]) {
     OperationResult result;
     memset(result.message, '\0', sizeof(result.message));
 
-    if (getSubscriptionIndex(subscriptionList, newSubscriberPID, key) != -1) {
+    char dummy[MAX_STRING_LENGTH];
+    if (get(key, dummy).code == -1) {
         result.code = -1;
-        strcpy(result.message, "already_subbed");
-        return result;
-    } else if (subscriptionList->nextFree >= ( sizeof(subscriptionList->pool) / sizeof(subscriptionList->pool[0]) )) {
+        strcpy(result.message, "key_nonexistent");
+    } else if (getSubscriptionIndex(subscriptionList, newSubscriberPID, key) != -1) {
         result.code = -2;
+        strcpy(result.message, "already_subbed");
+    } else if (subscriptionList->nextFree >= ( sizeof(subscriptionList->pool) / sizeof(subscriptionList->pool[0]) )) {
+        result.code = -3;
         strcpy(result.message, "reached_global_subscription_limit");
     } else {
         memset(subscriptionList->pool[subscriptionList->nextFree].key, '\0', sizeof(subscriptionList->pool[subscriptionList->nextFree].key));
@@ -51,7 +53,7 @@ OperationResult subscribe(subscriptionList *subscriptionList, int newSubscriberP
 
 int removeSubscriptionByIndex(subscriptionList *subscriptionList, int index) {
     if (index >= subscriptionList->nextFree) {
-        return -1;
+        return 0;
     }
     while (index < subscriptionList->nextFree-1) {
         subscriptionList->pool[index].subscriberPID = subscriptionList->pool[index + 1].subscriberPID;
@@ -60,7 +62,7 @@ int removeSubscriptionByIndex(subscriptionList *subscriptionList, int index) {
         index++;
     }
     subscriptionList->nextFree = subscriptionList->nextFree -1;
-    return 0;
+    return 1;
 }
 
 // critical operation on subscriptionList
@@ -70,8 +72,7 @@ int unsubscribeFromAllKeys(subscriptionList *subscriptionList, int oldSubscriber
 
     int subscriptionIndex, numOfRemovedSubscriptions = 0;
     while ((subscriptionIndex = getFirstSubscriptionIndexOfSubscriber(subscriptionList, oldSubscriberPID)) != -1) {
-        removeSubscriptionByIndex(subscriptionList, subscriptionIndex);
-        numOfRemovedSubscriptions++;
+        numOfRemovedSubscriptions += removeSubscriptionByIndex(subscriptionList, subscriptionIndex);
     }
     return numOfRemovedSubscriptions;
 }
