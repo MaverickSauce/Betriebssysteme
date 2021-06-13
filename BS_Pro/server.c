@@ -12,7 +12,6 @@ int main() {
     int sharedSubscriptionListID;
     subscriptionList *sharedSubscriptionList;
     char subscriptionMessage[3*MAX_STRING_LENGTH];
-    int semStorage, semReadCounter;
     int exclusiveAccessRights = 0;
     unsigned short marker[1] = { 1 };
     const int serverPort = 5678;
@@ -23,13 +22,16 @@ int main() {
     OperationResult operationResult;
 
     // create semaphores
-    semStorage = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
-    semReadCounter = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
+    int semStorage = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
+    int semReadCounter = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
+    int semSubscriptionList = semget(IPC_PRIVATE, 1, IPC_CREAT | 0777);
 
     // initialize semaphores
     semctl(semStorage, 1, SETALL, marker);
     semctl(semReadCounter, 1, SETALL, marker);
+    semctl(semSubscriptionList, 1, SETALL, marker);
 
+    // build semaphore operations
     struct sembuf semaphore_lock = {0, -1, SEM_UNDO};
     struct sembuf semaphore_unlock = {0, 1, SEM_UNDO};
 
@@ -137,7 +139,10 @@ int main() {
 
                         memset(subscriptionMessage, '\0', sizeof(subscriptionMessage));
                         sprintf(subscriptionMessage, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+
+                        if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
                         notifySubscribers(messageQueue, sharedSubscriptionList, userInput.key, subscriptionMessage);
+                        if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
                     } else if (strncmp("GET", userInput.command, 3) == 0) {
                         if (!exclusiveAccessRights) {
                             semop(semReadCounter, &semaphore_lock,1);             // enter critical area: sharedReadCounter
@@ -174,10 +179,14 @@ int main() {
 
                         memset(subscriptionMessage, '\0', sizeof(subscriptionMessage));
                         sprintf(subscriptionMessage, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+
+                        if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
                         notifySubscribers(messageQueue, sharedSubscriptionList, userInput.key, subscriptionMessage);
+                        if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
                     } else if (strncmp("BEG", userInput.command, 3) == 0) {
                         if (!exclusiveAccessRights) {
                             semop(semStorage, &semaphore_lock, 1);                  // enter exclusive access
+                            semop(semSubscriptionList, &semaphore_lock, 1);
                             exclusiveAccessRights = 1;
                             strcpy(messageFromServer, "> BEG:activated\n");
                         } else {
@@ -189,6 +198,7 @@ int main() {
                         if (exclusiveAccessRights) {
                             exclusiveAccessRights = 0;
                             semop(semStorage, &semaphore_unlock, 1);                // leave exclusive access
+                            semop(semSubscriptionList, &semaphore_unlock, 1);
                             strcpy(messageFromServer, "> END:deactivated\n");
                         } else {
                             strcpy(messageFromServer, "> END:already_not_active\n");
@@ -197,9 +207,9 @@ int main() {
                         continue;
                     } else if (strncmp("SUB", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
 
-                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: subscriptionList
+                        if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
                         operationResult = subscribe(sharedSubscriptionList, getpid(), userInput.key);
-                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: subscriptionList
+                        if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
 
                         memset(userInput.value, '\0', sizeof(userInput.value));
                         sprintf(userInput.value, "%s", operationResult.message);
@@ -214,7 +224,11 @@ int main() {
 
                 close(new_sock);
                 printf("Closed connection to a client.\n");
+
+                if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
                 unsubscribeFromAllKeys(sharedSubscriptionList, getpid());
+                if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
+
                 kill(childPid, SIGKILL); // terminate the child process
                 exit(0);
             } else {
