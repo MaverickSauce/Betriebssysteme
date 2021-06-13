@@ -29,15 +29,11 @@ OperationResult subscribe(subscriptionList *subscriptionList, int newSubscriberP
     OperationResult result;
     memset(result.message, '\0', sizeof(result.message));
 
-    char dummy[MAX_STRING_LENGTH];
-    if (get(key, dummy).code == -1) {
+    if (getSubscriptionIndex(subscriptionList, newSubscriberPID, key) != -1) {
         result.code = -1;
-        strcpy(result.message, "key_nonexistent");
-    } else if (getSubscriptionIndex(subscriptionList, newSubscriberPID, key) != -1) {
-        result.code = -2;
         strcpy(result.message, "already_subbed");
     } else if (subscriptionList->nextFree >= ( sizeof(subscriptionList->pool) / sizeof(subscriptionList->pool[0]) )) {
-        result.code = -3;
+        result.code = -2;
         strcpy(result.message, "reached_global_subscription_limit");
     } else {
         memset(subscriptionList->pool[subscriptionList->nextFree].key, '\0', sizeof(subscriptionList->pool[subscriptionList->nextFree].key));
