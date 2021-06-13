@@ -76,7 +76,6 @@ int main() {
     int clientLength = sizeof(client);
 
     while(1) {
-        char subscriptionMessage[3*MAX_STRING_LENGTH];
         char messageFromServer[MAX_MESSAGE_LENGTH], messageFromClient[MAX_MESSAGE_LENGTH];
 
         UserInput userInput;
@@ -136,11 +135,12 @@ int main() {
 
                         strcat(userInput.value, operationResult.message);
 
-                        memset(subscriptionMessage, '\0', sizeof(subscriptionMessage));
-                        sprintf(subscriptionMessage, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+                        memset(messageFromServer, '\0', sizeof(messageFromServer));
+                        sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+                        write(new_sock, messageFromServer, strlen(messageFromServer));                 // send back response Value
 
                         if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
-                        notifySubscribers(messageQueue, sharedSubscriptionList, userInput.key, subscriptionMessage);
+                        notifySubscribers(messageQueue, sharedSubscriptionList, userInput.key, messageFromServer);
                         if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
                     } else if (strncmp("GET", userInput.command, 3) == 0) {
                         if (!exclusiveAccessRights) {
@@ -167,6 +167,10 @@ int main() {
                         if (operationResult.code < 0) {
                             sprintf(userInput.value, "%s", operationResult.message);
                         }
+                        memset(messageFromServer, '\0', sizeof(messageFromServer));
+                        sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+                        write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
+
                     } else if (strncmp("DEL", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
 
                         if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
@@ -176,11 +180,12 @@ int main() {
                         memset(userInput.value, '\0', sizeof(userInput.value));
                         sprintf(userInput.value, "%s", operationResult.message);
 
-                        memset(subscriptionMessage, '\0', sizeof(subscriptionMessage));
-                        sprintf(subscriptionMessage, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+                        memset(messageFromServer, '\0', sizeof(messageFromServer));
+                        sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+                        write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
 
                         if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
-                        notifySubscribers(messageQueue, sharedSubscriptionList, userInput.key, subscriptionMessage);
+                        notifySubscribers(messageQueue, sharedSubscriptionList, userInput.key, messageFromServer);
                         if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
                     } else if (strncmp("BEG", userInput.command, 3) == 0) {
                         if (!exclusiveAccessRights) {
@@ -212,13 +217,13 @@ int main() {
 
                         memset(userInput.value, '\0', sizeof(userInput.value));
                         sprintf(userInput.value, "%s", operationResult.message);
+                        sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
+                        write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
                     } else if (strncmp("QUIT", userInput.command, 4) == 0) {
                         strcpy(messageFromServer, "> bye bye\n");
                         write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
                         break;
                     }
-                    sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
-                    write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
                 }
 
                 close(new_sock);
