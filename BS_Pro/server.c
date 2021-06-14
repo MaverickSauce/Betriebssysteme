@@ -217,9 +217,7 @@ int main() {
                         if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
                         operationResult = subscribe(sharedSubscriptionList, getpid(), userInput.key);
                         if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
-
                         sprintf(userInput.value, "%s:%s", userInput.value, operationResult.message);
-                        //strcat(userInput.value, operationResult.message);
 
                         sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
                         write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
