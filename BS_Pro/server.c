@@ -128,6 +128,7 @@ int main() {
                         if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
 
                         strcat(userInput.value, operationResult.message);
+                        puts(userInput.value);
 
                         memset(messageFromServer, '\0', sizeof(messageFromServer));
                         sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
@@ -205,12 +206,21 @@ int main() {
                         continue;
                     } else if (strncmp("SUB", userInput.command, 3) == 0) {             // fill userInput.value based on function result to
 
+                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_lock, 1);      // enter critical area: storage
+                        operationResult = get(userInput.key, userInput.value);
+                        if (!exclusiveAccessRights) semop(semStorage, &semaphore_unlock, 1);    // leave critical area: storage
+                        if (operationResult.code < 0) {
+                            memset(userInput.value, '\0', sizeof(userInput.value));
+                            strcpy(userInput.value, operationResult.message);
+                        }
+
                         if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
                         operationResult = subscribe(sharedSubscriptionList, getpid(), userInput.key);
                         if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
 
-                        memset(userInput.value, '\0', sizeof(userInput.value));
-                        sprintf(userInput.value, "%s", operationResult.message);
+                        sprintf(userInput.value, "%s:%s", userInput.value, operationResult.message);
+                        //strcat(userInput.value, operationResult.message);
+
                         sprintf(messageFromServer, "> %s:%s:%s\n", userInput.command, userInput.key, userInput.value);
                         write(new_sock, messageFromServer, strlen(messageFromServer)); // send back response Value
                     } else if (strncmp("QUIT", userInput.command, 4) == 0) {
