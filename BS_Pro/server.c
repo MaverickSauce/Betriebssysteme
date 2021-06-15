@@ -147,7 +147,7 @@ int main() {
                             semop(semReadCounter, &semaphore_unlock,1);           // leave critical area: sharedReadCounter
                         }
 
-                        sleep(10);      // only for testing
+                        sleep(5);      // only for testing
                         operationResult = get(userInput.key, userInput.value);
 
                         if (!exclusiveAccessRights) {
@@ -200,7 +200,7 @@ int main() {
                             semop(semSubscriptionList, &semaphore_unlock, 1);
                             strcpy(messageFromServer, "> END:deactivated\n");
                         } else {
-                            strcpy(messageFromServer, "> END:already_not_active\n");
+                            strcpy(messageFromServer, "> END:already_inactive\n");
                         }
                         write(new_sock, messageFromServer, strlen(messageFromServer));
                         continue;
@@ -231,9 +231,9 @@ int main() {
                 close(new_sock);
                 printf("Closed connection to a client.\n");
 
-                if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
+               /* if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_lock, 1);           // enter critical area: subscriptionList
                 unsubscribeFromAllKeys(sharedSubscriptionList, getpid());
-                if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);         // leave critical area: subscriptionList
+                if (!exclusiveAccessRights) semop(semSubscriptionList, &semaphore_unlock, 1);  */       // leave critical area: subscriptionList
 
                 kill(childPid, SIGKILL); // terminate the child process
                 exit(0);
